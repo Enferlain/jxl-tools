@@ -57,6 +57,9 @@ class ConversionSettings(BaseModel):
     # JPEG byte-exact reconstruction (requires cjxl/djxl)
     jpeg_lossless: bool = False
 
+    # Timeout
+    timeout_seconds: int = Field(default=300, ge=1)
+
     # Batch
     recursive: bool = True
     mirror_structure: bool = True

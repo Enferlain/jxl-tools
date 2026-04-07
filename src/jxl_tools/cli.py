@@ -50,6 +50,7 @@ def cli():
 @click.option("-d", "--distance", type=float, default=None, help="Butteraugli distance (0.0-25.0).")
 @click.option("--format", "output_format", type=click.Choice(["png", "jpeg", "webp", "tiff"]), default="png", help="Output format when converting from JXL.")
 @click.option("--jpeg-lossless", is_flag=True, default=False, help="Byte-exact JPEG reconstruction (requires cjxl/djxl).")
+@click.option("--timeout", "timeout_seconds", type=int, default=300, help="Timeout in seconds per file. Default: 300.")
 @click.option("--strip-metadata", is_flag=True, default=False, help="Strip all metadata.")
 @click.option("--strip-exif", is_flag=True, default=False, help="Strip EXIF data only.")
 @click.option("--strip-icc", is_flag=True, default=False, help="Strip ICC profile only.")
@@ -209,6 +210,9 @@ def convert(
         f"{_format_size(result.total_input_size)} → {_format_size(result.total_output_size)} "
         f"([{'green' if total_savings > 0 else 'red'}]{total_savings:+.1f}%[/] savings)"
     )
+
+    if errors:
+        sys.exit(1)
 
 
 # ---------------------------------------------------------------------------

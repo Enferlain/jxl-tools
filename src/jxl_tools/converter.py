@@ -87,6 +87,7 @@ def _run_cjxl(
     effort: int = 7,
     distance: float | None = None,
     extra_channels: int | None = None,
+    timeout: int = 300,
 ) -> subprocess.CompletedProcess:
     """Run cjxl to encode an image to JXL."""
     _find_tools()
@@ -113,14 +114,15 @@ def _run_cjxl(
 
     log.debug("Running: %s", " ".join(cmd))
     try:
-        return subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+        return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
     except subprocess.TimeoutExpired:
-        raise RuntimeError("cjxl timed out after 300 seconds. Try reducing effort or using a smaller image.")
+        raise RuntimeError(f"cjxl timed out after {timeout} seconds. Try reducing effort or using a smaller image.")
 
 
 def _run_djxl(
     input_path: Path,
     output_path: Path,
+    timeout: int = 300,
 ) -> subprocess.CompletedProcess:
     """Run djxl to decode a JXL file."""
     _find_tools()
@@ -129,9 +131,9 @@ def _run_djxl(
     cmd = [_djxl_path, str(input_path), str(output_path)]
     log.debug("Running: %s", " ".join(cmd))
     try:
-        return subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+        return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
     except subprocess.TimeoutExpired:
-        raise RuntimeError("djxl timed out after 300 seconds.")
+        raise RuntimeError(f"djxl timed out after {timeout} seconds.")
 
 
 # ---------------------------------------------------------------------------
@@ -179,6 +181,7 @@ def convert_to_jxl(
                 input_path, output_path,
                 lossless_jpeg=True,
                 effort=settings.effort,
+                timeout=settings.timeout_seconds,
             )
             if result.returncode != 0:
                 raise RuntimeError(f"cjxl failed: {result.stderr.strip()}")
@@ -197,6 +200,7 @@ def convert_to_jxl(
                 quality=settings.quality,
                 effort=settings.effort,
                 distance=settings.distance,
+                timeout=settings.timeout_seconds,
             )
             if result.returncode != 0:
                 raise RuntimeError(f"cjxl failed: {result.stderr.strip()}")
@@ -214,6 +218,7 @@ def convert_to_jxl(
                 lossless=settings.lossless,
                 quality=settings.quality,
                 effort=settings.effort,
+                timeout=settings.timeout_seconds,
             )
             if result.returncode != 0:
                 raise RuntimeError(f"cjxl failed: {result.stderr.strip()}")
@@ -340,7 +345,6 @@ def convert_from_jxl(
 
     try:
         out_fmt = settings.output_format.value  # "png", "jpeg", etc.
-        out_ext = output_path.suffix.lower()
 
         # --- djxl path for JPEG reconstruction ---
         if (
@@ -348,7 +352,7 @@ def convert_from_jxl(
             and out_fmt == "jpeg"
             and has_djxl()
         ):
-            result = _run_djxl(input_path, output_path)
+            result = _run_djxl(input_path, output_path, timeout=settings.timeout_seconds)
             if result.returncode != 0:
                 raise RuntimeError(f"djxl failed: {result.stderr.strip()}")
             used_jpeg_lossless = True
@@ -566,17 +570,21 @@ async def convert_batch_async(
     async_tasks = [asyncio.create_task(_convert_one(inp, outp)) for inp, outp in tasks]
 
     # Yield progress as results come in
-    for _ in range(len(tasks)):
-        result = await results_queue.get()
-        progress.results.append(result)
-        progress.completed += 1
-        progress.current_file = result.input_path
-        progress.total_input_size += result.input_size
-        progress.total_output_size += result.output_size
-        yield progress
-
-    # Ensure all tasks have finished
-    await asyncio.gather(*async_tasks)
+    try:
+        for _ in range(len(tasks)):
+            result = await results_queue.get()
+            progress.results.append(result)
+            progress.completed += 1
+            progress.current_file = result.input_path
+            progress.total_input_size += result.input_size
+            progress.total_output_size += result.output_size
+            yield progress
+    finally:
+        # Ensure all tasks have finished even if generator is closed early
+        results = await asyncio.gather(*async_tasks, return_exceptions=True)
+        for r in results:
+            if isinstance(r, Exception):
+                log.exception("Unexpected task failure in batch: %s", r)
 
     progress.done = True
     yield progress

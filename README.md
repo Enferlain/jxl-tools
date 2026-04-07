@@ -13,6 +13,7 @@ Convert images to and from [JPEG XL](https://jpeg.org/jpegxl/) with quality tuni
 - **Metadata preservation** — EXIF data and ICC color profiles carried through conversion by default
 - **Batch processing** — convert entire folders recursively with parallel workers, mirrored directory structure
 - **Byte-exact JPEG reconstruction** — lossless JPEG↔JXL round-trip via bundled `cjxl`/`djxl`
+- **Smart palette handling** — palette PNGs are routed through `cjxl`'s native Palette transform; falls back to WebP lossless or keeps the original if the output would be larger
 - **Web UI** — drag-and-drop interface with dark theme, real-time settings, per-file results, and zip download
 - **CLI** — scriptable command-line interface with rich progress bars and formatted output
 

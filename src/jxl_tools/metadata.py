@@ -70,18 +70,16 @@ def build_metadata_summary(img: Image.Image) -> MetadataSummary:
 
     icc_desc = ""
     if icc_bytes:
-        # Try to pull the profile description from the raw ICC data
         try:
-            # The 'desc' tag is at a known offset in simple profiles
-            desc_idx = icc_bytes.find(b"desc")
-            if desc_idx >= 0:
-                # Skip tag signature(4) + reserved(4) + length(4) + offset(4) + count(4)
-                start = desc_idx + 12
-                end = icc_bytes.find(b"\x00", start)
-                if end > start:
-                    icc_desc = icc_bytes[start:end].decode("ascii", errors="replace").strip()
+            from PIL import ImageCms
+            profile = ImageCms.ImageCmsProfile(io.BytesIO(icc_bytes))
+            # profile_description might return a string or None, or not exist
+            desc = getattr(profile.profile, "profile_description", None)
+            if desc and isinstance(desc, str):
+                icc_desc = desc.strip()
         except Exception:
-            icc_desc = "present"
+            pass
+            
         if not icc_desc:
             icc_desc = "present"
 

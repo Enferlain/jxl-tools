@@ -10,6 +10,7 @@ import tempfile
 import uuid
 import zipfile
 import re
+import shutil
 from pathlib import Path
 
 
@@ -28,8 +29,8 @@ from jxl_tools.models import ConversionResult, ConversionSettings
 
 def sanitize_filename(filename: str) -> str:
     """Sanitize a filename to prevent path traversal."""
-    filename = re.sub(r'[\\/\0]', '_', filename)
-    filename = re.sub(r'[^\w\-_.]', '_', filename)
+    # Preserve more characters, only block dangerous ones and directory traversal
+    filename = re.sub(r'[\\/\0:*?"<>|]', '_', filename)
     return filename
 
 log = logging.getLogger(__name__)
@@ -94,8 +95,14 @@ async def convert_file(
     safe_filename = sanitize_filename(file.filename)
     input_path = input_dir / safe_filename
     with open(input_path, "wb") as f:
-        content = await file.read()
-        f.write(content)
+        shutil.copyfileobj(file.file, f)
+        
+    from PIL import Image
+    try:
+        Image.open(input_path).verify()
+    except Exception:
+        input_path.unlink(missing_ok=True)
+        raise HTTPException(400, "Invalid image file or corrupted data")
 
     # Determine output filename
     suffix = input_path.suffix.lower()
@@ -156,9 +163,16 @@ async def convert_batch(
 
         safe_filename = sanitize_filename(upload.filename)
         input_path = input_dir / safe_filename
+        
         with open(input_path, "wb") as f:
-            content = await upload.read()
-            f.write(content)
+            shutil.copyfileobj(upload.file, f)
+            
+        from PIL import Image
+        try:
+            Image.open(input_path).verify()
+        except Exception:
+            input_path.unlink(missing_ok=True)
+            raise HTTPException(400, f"Invalid image file: {upload.filename}")
 
         suffix = input_path.suffix.lower()
         if suffix == ".jxl":
@@ -239,6 +253,8 @@ async def convert_batch(
 @app.get("/api/preview/{job_id}/{filename}")
 async def preview_file(job_id: str, filename: str):
     """Serve a converted file for preview."""
+    job_id = sanitize_filename(job_id)
+    filename = sanitize_filename(filename)
     file_path = WORK_DIR / job_id / "output" / filename
     if not file_path.exists():
         # Try input dir
@@ -266,6 +282,8 @@ async def preview_file(job_id: str, filename: str):
 @app.get("/api/download/{job_id}/{filename}")
 async def download_file(job_id: str, filename: str):
     """Download a converted file."""
+    job_id = sanitize_filename(job_id)
+    filename = sanitize_filename(filename)
     file_path = WORK_DIR / job_id / "output" / filename
     if not file_path.exists():
         raise HTTPException(404, "File not found")
@@ -279,6 +297,7 @@ async def download_file(job_id: str, filename: str):
 @app.post("/api/download-batch/{job_id}")
 async def download_batch(job_id: str):
     """Download all converted files as a zip."""
+    job_id = sanitize_filename(job_id)
     output_dir = WORK_DIR / job_id / "output"
     if not output_dir.exists():
         raise HTTPException(404, "Job not found")
