@@ -12,7 +12,7 @@ Convert images to and from [JPEG XL](https://jpeg.org/jpegxl/) with quality tuni
 - **Quality presets** — *Fast*, *Web*, *Archive*, or fully custom settings
 - **Metadata preservation** — EXIF data and ICC color profiles carried through conversion by default
 - **Batch processing** — convert entire folders recursively with parallel workers, mirrored directory structure
-- **Byte-exact JPEG reconstruction** — lossless JPEG↔JXL round-trip when `cjxl`/`djxl` are available
+- **Byte-exact JPEG reconstruction** — lossless JPEG↔JXL round-trip via bundled `cjxl`/`djxl`
 - **Web UI** — drag-and-drop interface with dark theme, real-time settings, per-file results, and zip download
 - **CLI** — scriptable command-line interface with rich progress bars and formatted output
 
@@ -39,9 +39,13 @@ uv sync
 pip install -e .
 ```
 
-### Optional: Install libjxl tools
+### Bundled libjxl tools
 
-For byte-exact JPEG reconstruction (lossless JPEG→JXL→JPEG round-trip), install `cjxl` and `djxl` from the [libjxl releases](https://github.com/libjxl/libjxl/releases). Place them on your `PATH`. JXL Tools will automatically detect them at startup.
+`cjxl` and `djxl` from [libjxl](https://github.com/libjxl/libjxl) are bundled for Windows (x64) and Linux (x86_64). Byte-exact JPEG reconstruction works out of the box — no separate install needed.
+
+If you have your own `cjxl`/`djxl` on `PATH`, those take priority over the bundled versions.
+
+> **macOS**: Not bundled yet. Install via `brew install jpeg-xl` or build from source. The tool falls back to Pillow-only mode gracefully.
 
 ---
 
@@ -341,7 +345,7 @@ jxl-tools/
 | Image handling | [Pillow](https://python-pillow.org/) |
 | Web server | [FastAPI](https://fastapi.tiangolo.com/) + [Uvicorn](https://www.uvicorn.org/) |
 | CLI | [Click](https://click.palletsprojects.com/) + [Rich](https://rich.readthedocs.io/) |
-| Optional | `cjxl`/`djxl` from [libjxl](https://github.com/libjxl/libjxl) for byte-exact JPEG |
+| JPEG lossless | Bundled `cjxl`/`djxl` from [libjxl](https://github.com/libjxl/libjxl) (Windows x64, Linux x86_64) |
 
 ---
 

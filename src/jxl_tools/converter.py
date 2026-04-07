@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 import concurrent.futures
 import logging
-import shutil
 import subprocess
 import time
 import uuid
@@ -47,8 +46,11 @@ def _find_tools() -> None:
     global _cjxl_path, _djxl_path, _tools_checked
     if _tools_checked:
         return
-    _cjxl_path = shutil.which("cjxl")
-    _djxl_path = shutil.which("djxl")
+
+    from jxl_tools.binutil import get_tool_path
+
+    _cjxl_path = get_tool_path("cjxl")
+    _djxl_path = get_tool_path("djxl")
     _tools_checked = True
     if _cjxl_path:
         log.info("Found cjxl at %s", _cjxl_path)

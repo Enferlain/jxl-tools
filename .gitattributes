@@ -1,0 +1,4 @@
+# Vendored libjxl binaries — treat as binary
+vendor/**/*.exe binary
+vendor/**/cjxl binary
+vendor/**/djxl binary
