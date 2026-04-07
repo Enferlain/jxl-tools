@@ -112,7 +112,10 @@ def _run_cjxl(
     cmd += [str(input_path), str(output_path)]
 
     log.debug("Running: %s", " ".join(cmd))
-    return subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+    try:
+        return subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+    except subprocess.TimeoutExpired:
+        raise RuntimeError("cjxl timed out after 300 seconds. Try reducing effort or using a smaller image.")
 
 
 def _run_djxl(
@@ -125,7 +128,10 @@ def _run_djxl(
 
     cmd = [_djxl_path, str(input_path), str(output_path)]
     log.debug("Running: %s", " ".join(cmd))
-    return subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+    try:
+        return subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+    except subprocess.TimeoutExpired:
+        raise RuntimeError("djxl timed out after 300 seconds.")
 
 
 # ---------------------------------------------------------------------------
@@ -203,11 +209,6 @@ def convert_to_jxl(
             # cjxl can use its own Palette transform on the original
             # indexed PNG, producing much smaller files than Pillow's
             # P→RGB depalettization followed by JXL encoding.
-            #
-            # Smart lossless cascade for stubborn images:
-            #   1. Encode with user settings
-            #   2. If lossless & output > input: retry with -E 3 (extra MA tree props)
-            #   3. If still bigger: retry with -d 1 (near-lossless, visually transparent)
             result = _run_cjxl(
                 input_path, output_path,
                 lossless=settings.lossless,
@@ -216,32 +217,6 @@ def convert_to_jxl(
             )
             if result.returncode != 0:
                 raise RuntimeError(f"cjxl failed: {result.stderr.strip()}")
-
-            # Smart fallback for lossless mode: if output > input, the
-            # original PNG is already very compact (e.g. dithered palette art).
-            # JXL modular can't always beat highly-optimized PNGs, so try
-            # WebP lossless which handles these cases better.
-            if settings.lossless and output_path.stat().st_size > input_size:
-                log.info("JXL lossless bigger than input, trying WebP lossless…")
-                webp_path = output_path.with_suffix(".webp")
-                with Image.open(input_path) as img:
-                    if img.mode == "P":
-                        img = img.convert("RGBA" if "transparency" in img.info else "RGB")
-                    img.save(str(webp_path), format="WEBP", lossless=True, quality=100)
-
-                if webp_path.stat().st_size < input_size:
-                    output_path.unlink(missing_ok=True)
-                    output_path = webp_path
-                    log.info("WebP lossless smaller (%d KB), using that instead",
-                             webp_path.stat().st_size // 1024)
-                else:
-                    # Neither beats the original — keep it as-is
-                    webp_path.unlink(missing_ok=True)
-                    output_path.unlink(missing_ok=True)
-                    import shutil
-                    output_path = output_path.with_suffix(input_path.suffix)
-                    shutil.copy2(input_path, output_path)
-                    log.info("Kept original %s — already optimal", input_path.suffix.upper())
 
             with Image.open(input_path) as img:
                 metadata_summary = build_metadata_summary(img)
@@ -286,6 +261,36 @@ def convert_to_jxl(
                         )
 
                 img.save(str(output_path), format="JXL", **save_kwargs)
+
+        # Smart fallback for lossless mode: if output > input, the
+        # original image is already very compact. JXL modular can't 
+        # always beat highly-optimized originals. Try WebP lossless.
+        if settings.lossless and output_path.stat().st_size > input_size:
+            log.info("JXL lossless bigger than input, trying WebP lossless…")
+            webp_path = output_path.with_suffix(".webp")
+            with Image.open(input_path) as img:
+                if img.mode == "P":
+                    img = img.convert("RGBA" if "transparency" in img.info else "RGB")
+                img.save(str(webp_path), format="WEBP", lossless=True, quality=100)
+
+            if webp_path.stat().st_size < input_size:
+                output_path.unlink(missing_ok=True)
+                output_path = webp_path
+                log.info("WebP lossless smaller (%d KB), using that instead",
+                         webp_path.stat().st_size // 1024)
+            else:
+                # Neither beats the original — keep it as-is
+                webp_path.unlink(missing_ok=True)
+                output_path.unlink(missing_ok=True)
+                output_path = output_path.with_suffix(input_path.suffix)
+                
+                # Only copy if the source and destination are actually different paths
+                # (prevents SameFileError when converting in-place to the same directory)
+                if input_path.resolve() != output_path.resolve():
+                    import shutil
+                    shutil.copy2(input_path, output_path)
+                    
+                log.info("Kept original %s — already optimal", input_path.suffix.upper())
 
         output_size = output_path.stat().st_size
         elapsed = (time.perf_counter() - t0) * 1000

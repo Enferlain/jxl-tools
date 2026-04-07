@@ -9,6 +9,7 @@ import logging
 import tempfile
 import uuid
 import zipfile
+import re
 from pathlib import Path
 
 
@@ -24,6 +25,12 @@ from jxl_tools.converter import (
 )
 from jxl_tools.metadata import build_metadata_summary
 from jxl_tools.models import ConversionResult, ConversionSettings
+
+def sanitize_filename(filename: str) -> str:
+    """Sanitize a filename to prevent path traversal."""
+    filename = re.sub(r'[\\/\0]', '_', filename)
+    filename = re.sub(r'[^\w\-_.]', '_', filename)
+    return filename
 
 log = logging.getLogger(__name__)
 
@@ -84,7 +91,8 @@ async def convert_file(
 
     # Save uploaded file
     assert file.filename is not None
-    input_path = input_dir / file.filename
+    safe_filename = sanitize_filename(file.filename)
+    input_path = input_dir / safe_filename
     with open(input_path, "wb") as f:
         content = await file.read()
         f.write(content)
@@ -146,7 +154,8 @@ async def convert_batch(
         if not upload.filename:
             continue
 
-        input_path = input_dir / upload.filename
+        safe_filename = sanitize_filename(upload.filename)
+        input_path = input_dir / safe_filename
         with open(input_path, "wb") as f:
             content = await upload.read()
             f.write(content)
@@ -178,24 +187,26 @@ async def convert_batch(
         tasks = [asyncio.create_task(_convert_one(inp, outp)) for inp, outp in conversion_pairs]
 
         all_results: list[ConversionResult] = []
-        for i in range(total):
-            result = await results_queue.get()
-            all_results.append(result)
+        try:
+            for i in range(total):
+                result = await results_queue.get()
+                all_results.append(result)
 
-            name = Path(result.input_path).name
-            if result.error:
-                log.error("  ✗ %s — %s", name, result.error)
-            else:
-                log.info("  ✓ %s  %.1f%% savings  %.0fms", name, result.savings_pct, result.duration_ms)
+                name = Path(result.input_path).name
+                if result.error:
+                    log.error("  ✗ %s — %s", name, result.error)
+                else:
+                    log.info("  ✓ %s  %.1f%% savings  %.0fms", name, result.savings_pct, result.duration_ms)
 
-            yield json.dumps({
-                "type": "progress",
-                "completed": i + 1,
-                "total": total,
-                "current_file": name,
-            }) + "\n"
-
-        await asyncio.gather(*tasks)
+                yield json.dumps({
+                    "type": "progress",
+                    "completed": i + 1,
+                    "total": total,
+                    "current_file": name,
+                }) + "\n"
+        finally:
+            # Ensure all tasks complete even if the generator closes early or throws
+            await asyncio.gather(*tasks, return_exceptions=True)
 
         total_input = sum(r.input_size for r in all_results)
         total_output = sum(r.output_size for r in all_results)
@@ -211,7 +222,14 @@ async def convert_batch(
             ),
         }) + "\n"
 
-    return StreamingResponse(generate(), media_type="application/x-ndjson")
+    return StreamingResponse(
+        generate(),
+        media_type="application/x-ndjson",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        }
+    )
 
 
 # ---------------------------------------------------------------------------
