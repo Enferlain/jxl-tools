@@ -391,20 +391,46 @@
       let data;
 
       if (isBatch) {
-        // Batch: upload all files
+        // Batch: upload all files, stream progress
         const formData = new FormData();
         selectedFiles.forEach((f) => formData.append("files", f));
         formData.append("settings_json", JSON.stringify(settings));
 
         progressStatus.textContent = `Uploading ${selectedFiles.length} files…`;
-        progressFill.style.width = "20%";
+        progressFill.style.width = "5%";
 
         const res = await fetch("/api/convert-batch", { method: "POST", body: formData });
         if (!res.ok) {
           const err = await res.json().catch(() => ({ detail: res.statusText }));
           throw new Error(err.detail || "Conversion failed");
         }
-        data = await res.json();
+
+        // Parse streaming NDJSON response
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+
+          const lines = buffer.split("\n");
+          buffer = lines.pop(); // keep incomplete line
+
+          for (const line of lines) {
+            if (!line.trim()) continue;
+            const event = JSON.parse(line);
+            if (event.type === "progress") {
+              const pct = Math.round((event.completed / event.total) * 100);
+              progressFill.style.width = `${pct}%`;
+              progressStatus.textContent = `Converting… ${event.completed}/${event.total} — ${event.current_file}`;
+            } else if (event.type === "done") {
+              data = event;
+            }
+          }
+        }
+
         progressFill.style.width = "100%";
         progressStatus.textContent = "Done!";
 

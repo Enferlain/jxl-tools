@@ -105,6 +105,12 @@ async def convert_file(
         convert_single, input_path, output_path, settings
     )
 
+    name = input_path.name
+    if result.error:
+        log.error("✗ %s — %s", name, result.error)
+    else:
+        log.info("✓ %s  %.1f%% savings  %.0fms", name, result.savings_pct, result.duration_ms)
+
     return {
         "job_id": job_id,
         "result": result.model_dump(),
@@ -120,7 +126,7 @@ async def convert_batch(
     files: list[UploadFile] = File(...),
     settings_json: str = Form(default="{}"),
 ):
-    """Convert multiple uploaded files with parallel processing."""
+    """Convert multiple uploaded files with streaming progress."""
     try:
         settings_dict = json.loads(settings_json)
         settings = ConversionSettings(**settings_dict)
@@ -156,29 +162,56 @@ async def convert_batch(
         output_path = output_dir / (input_path.stem + out_ext)
         conversion_pairs.append((input_path, output_path))
 
-    # Phase 2: Convert all files concurrently with bounded parallelism
-    sem = asyncio.Semaphore(settings.workers)
+    total = len(conversion_pairs)
+    log.info("Batch %s: %d files, %d workers", job_id, total, settings.workers)
 
-    async def _convert_one(inp: Path, outp: Path) -> ConversionResult:
-        async with sem:
-            return await asyncio.to_thread(convert_single, inp, outp, settings)
+    # Phase 2: Convert with streaming progress (NDJSON)
+    async def generate():
+        sem = asyncio.Semaphore(settings.workers)
+        results_queue: asyncio.Queue[ConversionResult] = asyncio.Queue()
 
-    results_list = await asyncio.gather(
-        *[_convert_one(inp, outp) for inp, outp in conversion_pairs]
-    )
+        async def _convert_one(inp: Path, outp: Path) -> None:
+            async with sem:
+                result = await asyncio.to_thread(convert_single, inp, outp, settings)
+                await results_queue.put(result)
 
-    total_input = sum(r.input_size for r in results_list)
-    total_output = sum(r.output_size for r in results_list)
+        tasks = [asyncio.create_task(_convert_one(inp, outp)) for inp, outp in conversion_pairs]
 
-    return {
-        "job_id": job_id,
-        "results": [r.model_dump() for r in results_list],
-        "total_input_size": total_input,
-        "total_output_size": total_output,
-        "total_savings_pct": round(
-            (1 - total_output / total_input) * 100 if total_input > 0 else 0, 2
-        ),
-    }
+        all_results: list[ConversionResult] = []
+        for i in range(total):
+            result = await results_queue.get()
+            all_results.append(result)
+
+            name = Path(result.input_path).name
+            if result.error:
+                log.error("  ✗ %s — %s", name, result.error)
+            else:
+                log.info("  ✓ %s  %.1f%% savings  %.0fms", name, result.savings_pct, result.duration_ms)
+
+            yield json.dumps({
+                "type": "progress",
+                "completed": i + 1,
+                "total": total,
+                "current_file": name,
+            }) + "\n"
+
+        await asyncio.gather(*tasks)
+
+        total_input = sum(r.input_size for r in all_results)
+        total_output = sum(r.output_size for r in all_results)
+
+        yield json.dumps({
+            "type": "done",
+            "job_id": job_id,
+            "results": [r.model_dump() for r in all_results],
+            "total_input_size": total_input,
+            "total_output_size": total_output,
+            "total_savings_pct": round(
+                (1 - total_output / total_input) * 100 if total_input > 0 else 0, 2
+            ),
+        }) + "\n"
+
+    return StreamingResponse(generate(), media_type="application/x-ndjson")
 
 
 # ---------------------------------------------------------------------------
