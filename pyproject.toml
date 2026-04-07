@@ -1,0 +1,25 @@
+[project]
+name = "jxl-tools"
+version = "0.1.0"
+description = "JPEG XL conversion suite with web UI and CLI"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "pillow>=11.0",
+    "pillow-jxl-plugin>=1.0",
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.34",
+    "click>=8.1",
+    "rich>=13.0",
+    "python-multipart>=0.0.18",
+]
+
+[project.scripts]
+jxl-tools = "jxl_tools.cli:cli"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/jxl_tools"]

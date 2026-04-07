@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Convert images to and from JPEG XL with quality settings, metadata preservation, and batch processing.">
+  <title>JXL Tools</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <!-- Header -->
+  <header class="header">
+    <div class="header-brand">
+      <div class="header-logo">JXL</div>
+      <div>
+        <h1 class="header-title">JXL Tools</h1>
+        <p class="header-subtitle">JPEG XL Conversion Suite</p>
+      </div>
+    </div>
+    <div class="header-badges">
+      <span id="badge-cjxl" class="badge badge--inactive" title="Byte-exact JPEG reconstruction">
+        <span class="badge-dot"></span>
+        cjxl/djxl
+      </span>
+    </div>
+  </header>
+
+  <main class="main">
+    <!-- Drop Zone -->
+    <section id="drop-zone" class="drop-zone">
+      <div class="drop-zone-inner">
+        <div class="drop-zone-icon">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+        </div>
+        <p class="drop-zone-text">Drop images here or <label for="file-input" class="drop-zone-browse">browse</label></p>
+        <p class="drop-zone-hint">PNG, JPEG, WebP, TIFF, BMP → JXL &nbsp;·&nbsp; JXL → PNG, JPEG, WebP, TIFF</p>
+        <input type="file" id="file-input" multiple accept=".png,.jpg,.jpeg,.webp,.tiff,.tif,.bmp,.jxl" hidden>
+      </div>
+    </section>
+
+    <!-- Settings Panel -->
+    <section id="settings-panel" class="settings-panel" style="display: none;">
+      <div class="settings-grid">
+        <!-- Direction -->
+        <div class="settings-card">
+          <h3 class="settings-card-title">Direction</h3>
+          <div class="toggle-group" id="direction-toggle">
+            <button class="toggle-btn active" data-value="to_jxl">→ JXL</button>
+            <button class="toggle-btn" data-value="from_jxl">JXL →</button>
+          </div>
+          <div id="output-format-group" style="display: none; margin-top: 12px;">
+            <label class="settings-label">Output Format</label>
+            <select id="output-format" class="select-input">
+              <option value="png">PNG</option>
+              <option value="jpeg">JPEG</option>
+              <option value="webp">WebP</option>
+              <option value="tiff">TIFF</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Quality -->
+        <div class="settings-card">
+          <h3 class="settings-card-title">Quality</h3>
+          <div class="presets">
+            <button class="preset-btn" data-preset="fast">Fast</button>
+            <button class="preset-btn active" data-preset="web">Web</button>
+            <button class="preset-btn" data-preset="archive">Archive</button>
+            <button class="preset-btn" data-preset="custom">Custom</button>
+          </div>
+
+          <div id="quality-controls">
+            <!-- Lossless toggle -->
+            <div class="setting-row">
+              <label class="settings-label" for="lossless-toggle">Lossless</label>
+              <label class="switch">
+                <input type="checkbox" id="lossless-toggle">
+                <span class="switch-slider"></span>
+              </label>
+            </div>
+
+            <!-- Quality slider -->
+            <div id="quality-slider-group">
+              <div class="setting-row">
+                <label class="settings-label" for="quality-slider">Quality</label>
+                <span class="settings-value" id="quality-value">80</span>
+              </div>
+              <input type="range" id="quality-slider" class="range-input" min="1" max="100" value="80">
+            </div>
+
+            <!-- Effort -->
+            <div class="setting-row">
+              <label class="settings-label" for="effort-slider">Effort</label>
+              <span class="settings-value" id="effort-value">4</span>
+            </div>
+            <input type="range" id="effort-slider" class="range-input" min="1" max="9" value="4">
+          </div>
+        </div>
+
+        <!-- Metadata -->
+        <div class="settings-card">
+          <h3 class="settings-card-title">Metadata</h3>
+          <div class="setting-row">
+            <label class="settings-label" for="preserve-metadata">Preserve all metadata</label>
+            <label class="switch">
+              <input type="checkbox" id="preserve-metadata" checked>
+              <span class="switch-slider"></span>
+            </label>
+          </div>
+          <div class="setting-row">
+            <label class="settings-label" for="jpeg-lossless">Byte-exact JPEG</label>
+            <label class="switch">
+              <input type="checkbox" id="jpeg-lossless">
+              <span class="switch-slider"></span>
+            </label>
+          </div>
+          <p class="settings-hint" id="jpeg-lossless-hint">Requires cjxl/djxl. Reconstructs the exact original JPEG file.</p>
+        </div>
+      </div>
+
+      <!-- File list & actions -->
+      <div class="file-list-section">
+        <div class="file-list-header">
+          <h3 class="settings-card-title">Files (<span id="file-count">0</span>)</h3>
+          <div class="file-list-actions">
+            <button id="btn-add-more" class="btn btn--ghost">+ Add More</button>
+            <button id="btn-clear" class="btn btn--ghost btn--danger">Clear All</button>
+          </div>
+        </div>
+        <ul id="file-list" class="file-list"></ul>
+        <button id="btn-convert" class="btn btn--primary btn--large">
+          <span class="btn-text">Convert</span>
+          <span class="btn-spinner" style="display:none;"></span>
+        </button>
+      </div>
+    </section>
+
+    <!-- Results Panel -->
+    <section id="results-panel" class="results-panel" style="display: none;">
+      <div class="results-header">
+        <h2 class="results-title">Results</h2>
+        <div class="results-actions">
+          <button id="btn-download-all" class="btn btn--primary">Download All (.zip)</button>
+          <button id="btn-new" class="btn btn--ghost">New Conversion</button>
+        </div>
+      </div>
+
+      <!-- Summary stats -->
+      <div class="stats-grid" id="stats-grid">
+        <div class="stat-card">
+          <span class="stat-label">Files</span>
+          <span class="stat-value" id="stat-files">0</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Input Size</span>
+          <span class="stat-value" id="stat-input-size">0</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Output Size</span>
+          <span class="stat-value" id="stat-output-size">0</span>
+        </div>
+        <div class="stat-card stat-card--highlight">
+          <span class="stat-label">Savings</span>
+          <span class="stat-value" id="stat-savings">0%</span>
+        </div>
+      </div>
+
+      <!-- Results list -->
+      <ul id="results-list" class="results-list"></ul>
+    </section>
+  </main>
+
+  <!-- Progress overlay -->
+  <div id="progress-overlay" class="progress-overlay" style="display: none;">
+    <div class="progress-card">
+      <h3 class="progress-title">Converting…</h3>
+      <div class="progress-bar-track">
+        <div class="progress-bar-fill" id="progress-bar-fill"></div>
+      </div>
+      <p class="progress-status" id="progress-status">Preparing…</p>
+    </div>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
