@@ -6,15 +6,14 @@ import asyncio
 import io
 import json
 import logging
-import shutil
 import tempfile
 import uuid
 import zipfile
 from pathlib import Path
-from typing import Annotated, Any
+
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
-from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from jxl_tools.converter import (
@@ -50,10 +49,12 @@ app = FastAPI(
 @app.get("/api/capabilities")
 async def get_capabilities():
     """Return what features are available on this system."""
+    defaults = ConversionSettings()
     return {
         "cjxl_available": has_cjxl(),
         "djxl_available": has_djxl(),
         "jpeg_lossless": cjxl_available(),
+        "default_workers": defaults.workers,
     }
 
 
@@ -119,7 +120,7 @@ async def convert_batch(
     files: list[UploadFile] = File(...),
     settings_json: str = Form(default="{}"),
 ):
-    """Convert multiple uploaded files."""
+    """Convert multiple uploaded files with parallel processing."""
     try:
         settings_dict = json.loads(settings_json)
         settings = ConversionSettings(**settings_dict)
@@ -133,10 +134,8 @@ async def convert_batch(
     input_dir.mkdir(parents=True, exist_ok=True)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    results: list[dict[str, Any]] = []
-    total_input = 0
-    total_output = 0
-
+    # Phase 1: Save all uploaded files to disk
+    conversion_pairs: list[tuple[Path, Path]] = []
     for upload in files:
         if not upload.filename:
             continue
@@ -155,17 +154,25 @@ async def convert_batch(
             out_ext = ".jxl"
 
         output_path = output_dir / (input_path.stem + out_ext)
+        conversion_pairs.append((input_path, output_path))
 
-        result = await asyncio.to_thread(
-            convert_single, input_path, output_path, settings
-        )
-        results.append(result.model_dump())
-        total_input += result.input_size
-        total_output += result.output_size
+    # Phase 2: Convert all files concurrently with bounded parallelism
+    sem = asyncio.Semaphore(settings.workers)
+
+    async def _convert_one(inp: Path, outp: Path) -> ConversionResult:
+        async with sem:
+            return await asyncio.to_thread(convert_single, inp, outp, settings)
+
+    results_list = await asyncio.gather(
+        *[_convert_one(inp, outp) for inp, outp in conversion_pairs]
+    )
+
+    total_input = sum(r.input_size for r in results_list)
+    total_output = sum(r.output_size for r in results_list)
 
     return {
         "job_id": job_id,
-        "results": results,
+        "results": [r.model_dump() for r in results_list],
         "total_input_size": total_input,
         "total_output_size": total_output,
         "total_savings_pct": round(

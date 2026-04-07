@@ -15,8 +15,6 @@ from jxl_tools.converter import (
     convert_batch_sync,
     convert_single,
     get_image_info,
-    has_cjxl,
-    has_djxl,
 )
 from jxl_tools.models import ConversionDirection, ConversionSettings, OutputFormat
 
@@ -58,6 +56,7 @@ def cli():
 @click.option("-r", "--recursive", is_flag=True, default=True, help="Recurse into subdirectories (batch mode).")
 @click.option("--no-recursive", is_flag=True, default=False, help="Don't recurse into subdirectories.")
 @click.option("--flat", is_flag=True, default=False, help="Don't mirror directory structure in output.")
+@click.option("-w", "--workers", type=int, default=None, help="Parallel worker threads. Default: CPU count.")
 def convert(
     input_path: str,
     output_path: str | None,
@@ -73,6 +72,7 @@ def convert(
     recursive: bool,
     no_recursive: bool,
     flat: bool,
+    workers: int | None,
 ):
     """Convert images to/from JPEG XL.
 
@@ -86,7 +86,7 @@ def convert(
         )
         sys.exit(1)
 
-    settings = ConversionSettings(
+    settings_kwargs: dict = dict(
         quality=quality,
         lossless=lossless,
         effort=effort,
@@ -99,6 +99,9 @@ def convert(
         recursive=recursive and not no_recursive,
         mirror_structure=not flat,
     )
+    if workers is not None:
+        settings_kwargs["workers"] = workers
+    settings = ConversionSettings(**settings_kwargs)
 
     src = Path(input_path)
 
@@ -150,6 +153,8 @@ def convert(
         settings.direction = ConversionDirection.TO_JXL
         console.print("[dim]Converting TO JXL[/]")
 
+    console.print(f"[dim]Using {settings.workers} worker thread{'s' if settings.workers != 1 else ''}[/]")
+
     with Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
@@ -157,10 +162,14 @@ def convert(
         TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
         TimeElapsedColumn(),
         console=console,
-    ) as progress:
-        result = convert_batch_sync(src, out_dir, settings)
-        task = progress.add_task("Converting", total=result.total)
-        progress.update(task, completed=result.completed)
+    ) as prog:
+        task = prog.add_task("Converting", total=0)
+
+        def _on_progress(batch_progress):
+            prog.update(task, total=batch_progress.total, completed=batch_progress.completed)
+
+        result = convert_batch_sync(src, out_dir, settings, on_progress=_on_progress)
+        prog.update(task, total=result.total, completed=result.completed)
 
     # Summary
     errors = [r for r in result.results if r.error]

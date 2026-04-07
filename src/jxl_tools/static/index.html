@@ -124,6 +124,17 @@
           </div>
           <p class="settings-hint" id="jpeg-lossless-hint">Requires cjxl/djxl. Reconstructs the exact original JPEG file.</p>
         </div>
+
+        <!-- Performance -->
+        <div class="settings-card">
+          <h3 class="settings-card-title">Performance</h3>
+          <div class="setting-row">
+            <label class="settings-label" for="workers-slider">Threads</label>
+            <span class="settings-value" id="workers-value">—</span>
+          </div>
+          <input type="range" id="workers-slider" class="range-input" min="1" max="16" value="1">
+          <p class="settings-hint" id="workers-hint">Parallel threads for batch conversion. Lower values leave more CPU for other tasks.</p>
+        </div>
       </div>
 
       <!-- File list & actions -->

@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 import asyncio
+import concurrent.futures
 import logging
-import os
 import shutil
 import subprocess
-import tempfile
 import time
 import uuid
 from collections.abc import AsyncGenerator
@@ -19,8 +18,6 @@ from PIL import Image
 from jxl_tools.metadata import (
     build_metadata_summary,
     build_save_kwargs,
-    extract_exif_bytes,
-    extract_icc_profile,
 )
 from jxl_tools.models import (
     BatchProgress,
@@ -205,6 +202,22 @@ def convert_to_jxl(
                 )
                 save_kwargs.update(meta_kwargs)
 
+                # pillow-jxl-plugin only supports RGB, RGBA, L, LA.
+                # Palette (P/PA) → RGB/RGBA is a lossless depalettization.
+                if img.mode not in ("RGB", "RGBA", "L", "LA"):
+                    if img.mode == "P":
+                        if "transparency" in img.info:
+                            img = img.convert("RGBA")
+                        else:
+                            img = img.convert("RGB")
+                    elif img.mode == "PA":
+                        img = img.convert("RGBA")
+                    else:
+                        raise ValueError(
+                            f"Unsupported color mode '{img.mode}' — "
+                            f"only RGB, RGBA, L, LA, P, PA are supported."
+                        )
+
                 img.save(str(output_path), format="JXL", **save_kwargs)
 
         output_size = output_path.stat().st_size
@@ -379,44 +392,70 @@ def _collect_files(
     return files
 
 
+def _build_output_path(
+    f: Path,
+    input_dir: Path,
+    output_dir: Path,
+    settings: ConversionSettings,
+) -> Path:
+    """Compute the output path for a single file in a batch."""
+    if settings.mirror_structure:
+        rel = f.relative_to(input_dir)
+    else:
+        rel = Path(f.name)
+
+    if settings.direction == ConversionDirection.TO_JXL:
+        return output_dir / rel.with_suffix(".jxl")
+    else:
+        out_ext = f".{settings.output_format.value}"
+        if out_ext == ".jpeg":
+            out_ext = ".jpg"
+        return output_dir / rel.with_suffix(out_ext)
+
+
 def convert_batch_sync(
     input_dir: Path,
     output_dir: Path,
     settings: ConversionSettings,
+    on_progress: Any = None,
 ) -> BatchProgress:
-    """Convert all matching files in a directory (synchronous)."""
+    """Convert all matching files in a directory using parallel threads.
+
+    Args:
+        on_progress: Optional callback(progress: BatchProgress) called after
+                     each file completes. Useful for CLI progress bars.
+    """
     input_dir = Path(input_dir)
     output_dir = Path(output_dir)
 
     files = _collect_files(input_dir, settings.direction, settings.recursive)
     job_id = uuid.uuid4().hex[:12]
+    workers = max(1, settings.workers)
 
     progress = BatchProgress(
         job_id=job_id,
         total=len(files),
     )
 
-    for f in files:
-        # Build output path preserving structure
-        if settings.mirror_structure:
-            rel = f.relative_to(input_dir)
-        else:
-            rel = Path(f.name)
+    # Build all (input, output) pairs upfront
+    tasks = [(f, _build_output_path(f, input_dir, output_dir, settings)) for f in files]
 
-        if settings.direction == ConversionDirection.TO_JXL:
-            out_path = output_dir / rel.with_suffix(".jxl")
-        else:
-            out_ext = f".{settings.output_format.value}"
-            if out_ext == ".jpeg":
-                out_ext = ".jpg"
-            out_path = output_dir / rel.with_suffix(out_ext)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as pool:
+        futures = {
+            pool.submit(convert_single, inp, outp, settings): inp
+            for inp, outp in tasks
+        }
 
-        progress.current_file = str(f)
-        result = convert_single(f, out_path, settings)
-        progress.results.append(result)
-        progress.completed += 1
-        progress.total_input_size += result.input_size
-        progress.total_output_size += result.output_size
+        for future in concurrent.futures.as_completed(futures):
+            result = future.result()
+            progress.results.append(result)
+            progress.completed += 1
+            progress.current_file = result.input_path
+            progress.total_input_size += result.input_size
+            progress.total_output_size += result.output_size
+
+            if on_progress:
+                on_progress(progress)
 
     progress.done = True
     return progress
@@ -427,42 +466,45 @@ async def convert_batch_async(
     output_dir: Path,
     settings: ConversionSettings,
 ) -> AsyncGenerator[BatchProgress, None]:
-    """Convert all matching files, yielding progress after each file."""
+    """Convert all matching files with bounded concurrency, yielding progress."""
     input_dir = Path(input_dir)
     output_dir = Path(output_dir)
 
     files = _collect_files(input_dir, settings.direction, settings.recursive)
     job_id = uuid.uuid4().hex[:12]
+    workers = max(1, settings.workers)
 
     progress = BatchProgress(
         job_id=job_id,
         total=len(files),
     )
 
-    for f in files:
-        if settings.mirror_structure:
-            rel = f.relative_to(input_dir)
-        else:
-            rel = Path(f.name)
+    # Build all (input, output) pairs upfront
+    tasks = [(f, _build_output_path(f, input_dir, output_dir, settings)) for f in files]
 
-        if settings.direction == ConversionDirection.TO_JXL:
-            out_path = output_dir / rel.with_suffix(".jxl")
-        else:
-            out_ext = f".{settings.output_format.value}"
-            if out_ext == ".jpeg":
-                out_ext = ".jpg"
-            out_path = output_dir / rel.with_suffix(out_ext)
+    sem = asyncio.Semaphore(workers)
+    results_queue: asyncio.Queue[ConversionResult] = asyncio.Queue()
 
-        progress.current_file = str(f)
+    async def _convert_one(inp: Path, outp: Path) -> None:
+        async with sem:
+            result = await asyncio.to_thread(convert_single, inp, outp, settings)
+            await results_queue.put(result)
 
-        # Run conversion in a thread to avoid blocking the event loop
-        result = await asyncio.to_thread(convert_single, f, out_path, settings)
+    # Launch all tasks
+    async_tasks = [asyncio.create_task(_convert_one(inp, outp)) for inp, outp in tasks]
+
+    # Yield progress as results come in
+    for _ in range(len(tasks)):
+        result = await results_queue.get()
         progress.results.append(result)
         progress.completed += 1
+        progress.current_file = result.input_path
         progress.total_input_size += result.input_size
         progress.total_output_size += result.output_size
-
         yield progress
+
+    # Ensure all tasks have finished
+    await asyncio.gather(*async_tasks)
 
     progress.done = True
     yield progress

@@ -36,6 +36,10 @@
   const jpegLossless   = $("#jpeg-lossless");
   const jpegHint       = $("#jpeg-lossless-hint");
 
+  // Performance
+  const workersSlider  = $("#workers-slider");
+  const workersValue   = $("#workers-value");
+
   // File list
   const fileCountEl    = $("#file-count");
   const fileListEl     = $("#file-list");
@@ -112,6 +116,13 @@
       jpegLossless.disabled = true;
       jpegLossless.checked = false;
     }
+
+    // Set workers slider to server default
+    const defaultWorkers = capabilities.default_workers || Math.max(1, (navigator.hardwareConcurrency || 4) - 1);
+    const maxWorkers = Math.min(navigator.hardwareConcurrency || 4, 16);
+    workersSlider.max = maxWorkers;
+    workersSlider.value = Math.min(defaultWorkers, maxWorkers);
+    workersValue.textContent = workersSlider.value;
   }
 
   // ---------------------------------------------------------------
@@ -330,6 +341,10 @@
     switchToCustom();
   });
 
+  workersSlider.addEventListener("input", () => {
+    workersValue.textContent = workersSlider.value;
+  });
+
   function switchToCustom() {
     if (currentPreset !== "custom") {
       currentPreset = "custom";
@@ -351,6 +366,7 @@
       jpeg_lossless: jpegLossless.checked && capabilities.jpeg_lossless,
       output_format: outputFmtSelect.value,
       direction: currentDirection,
+      workers: parseInt(workersSlider.value),
     };
   }
 

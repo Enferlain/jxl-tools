@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import os
 from enum import Enum
-from pathlib import Path
-from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -62,6 +60,7 @@ class ConversionSettings(BaseModel):
     # Batch
     recursive: bool = True
     mirror_structure: bool = True
+    workers: int = Field(default_factory=lambda: max(1, min((os.cpu_count() or 4) - 1, 16)))
 
     def apply_preset(self, preset: QualityPreset) -> None:
         """Apply a named quality preset, mutating self."""

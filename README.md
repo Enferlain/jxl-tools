@@ -1,5 +1,7 @@
 # JXL Tools
 
+![JXL Tools](src/assets/screenshots/2026-04-07-214559.png)
+
 A JPEG XL conversion suite with a web UI and a command-line interface.  
 Convert images to and from [JPEG XL](https://jpeg.org/jpegxl/) with quality tuning, metadata preservation, and batch processing.
 
@@ -9,7 +11,7 @@ Convert images to and from [JPEG XL](https://jpeg.org/jpegxl/) with quality tuni
 - **Quality controls** — lossless/lossy toggle, quality slider (1–100), effort level (1–9), Butteraugli distance
 - **Quality presets** — *Fast*, *Web*, *Archive*, or fully custom settings
 - **Metadata preservation** — EXIF data and ICC color profiles carried through conversion by default
-- **Batch processing** — convert entire folders recursively, with mirrored directory structure
+- **Batch processing** — convert entire folders recursively with parallel workers, mirrored directory structure
 - **Byte-exact JPEG reconstruction** — lossless JPEG↔JXL round-trip when `cjxl`/`djxl` are available
 - **Web UI** — drag-and-drop interface with dark theme, real-time settings, per-file results, and zip download
 - **CLI** — scriptable command-line interface with rich progress bars and formatted output
@@ -80,6 +82,9 @@ jxl-tools convert ./photos/
 
 # Output to a specific directory
 jxl-tools convert ./photos/ -o ./photos_jxl/
+
+# Limit to 4 worker threads (default: all CPU cores)
+jxl-tools convert ./photos/ -w 4
 
 # Flatten output (don't mirror subdirectory structure)
 jxl-tools convert ./photos/ -o ./output/ --flat
@@ -196,6 +201,7 @@ jxl-tools convert [OPTIONS] INPUT_PATH
 | `--strip-metadata` | flag | off | Strip all metadata (EXIF + ICC). |
 | `--strip-exif` | flag | off | Strip EXIF data only (keep ICC). |
 | `--strip-icc` | flag | off | Strip ICC profile only (keep EXIF). |
+| `-w, --workers` | int | CPU count − 1 | Number of parallel worker threads for batch conversion. Leaves one core free for system responsiveness. Capped at 16. |
 | `-r, --recursive` | flag | on | Recurse into subdirectories in batch mode. |
 | `--no-recursive` | flag | off | Don't recurse — only process files in the top-level directory. |
 | `--flat` | flag | off | Don't mirror the source directory structure in the output. All files go into a single output folder. |
