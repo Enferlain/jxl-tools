@@ -50,14 +50,15 @@
     <section id="settings-panel" class="settings-panel" style="display: none;">
       <div class="settings-grid">
         <!-- Direction -->
-        <div class="settings-card">
+        <div class="settings-card" title="Choose whether to convert files into JXL or decode them from JXL.">
           <h3 class="settings-card-title">Direction</h3>
           <div class="toggle-group" id="direction-toggle">
             <button class="toggle-btn active" data-value="to_jxl">→ JXL</button>
             <button class="toggle-btn" data-value="from_jxl">JXL →</button>
           </div>
+          <p class="settings-hint" id="jxl-fallback-hint" style="margin-top: 12px;">Automatically falls back to WebP or Original if JXL results in a larger file.</p>
           <div id="output-format-group" style="display: none; margin-top: 12px;">
-            <label class="settings-label">Output Format</label>
+            <label class="settings-label" title="Format to convert your JXL files into.">Output Format</label>
             <select id="output-format" class="select-input">
               <option value="png">PNG</option>
               <option value="jpeg">JPEG</option>
@@ -68,18 +69,18 @@
         </div>
 
         <!-- Quality -->
-        <div class="settings-card" id="quality-card">
+        <div class="settings-card" id="quality-card" title="Compression settings. Choose 'Lossless' for exact pixel matching, or adjust sliders to balance size vs visual quality.">
           <h3 class="settings-card-title">Quality</h3>
           <div class="presets">
-            <button class="preset-btn" data-preset="fast">Fast</button>
-            <button class="preset-btn active" data-preset="web">Web</button>
-            <button class="preset-btn" data-preset="archive">Archive</button>
-            <button class="preset-btn" data-preset="custom">Custom</button>
+            <button class="preset-btn" data-preset="fast" title="Fast encoding, moderate compression.">Fast</button>
+            <button class="preset-btn active" data-preset="web" title="Balanced for web use.">Web</button>
+            <button class="preset-btn" data-preset="archive" title="Maximum compression for archiving.">Archive</button>
+            <button class="preset-btn" data-preset="custom" title="Custom manual settings.">Custom</button>
           </div>
 
           <div id="quality-controls">
             <!-- Lossless toggle -->
-            <div class="setting-row">
+            <div class="setting-row" title="Enable mathematically perfect, exact pixel reconstruction.">
               <label class="settings-label" for="lossless-toggle">Lossless</label>
               <label class="switch">
                 <input type="checkbox" id="lossless-toggle">
@@ -88,53 +89,53 @@
             </div>
 
             <!-- Quality slider -->
-            <div id="quality-slider-group">
+            <div id="quality-slider-group" title="Target visual quality. 100 is mathematically lossless, while lower values aggressively increase compression by discarding more data.">
               <div class="setting-row">
                 <label class="settings-label" for="quality-slider">Quality</label>
                 <span class="settings-value" id="quality-value">80</span>
               </div>
-              <input type="range" id="quality-slider" class="range-input" min="1" max="100" value="80">
+              <input type="range" id="quality-slider" class="range-input" min="1" max="100" value="80" title="Target visual quality. 100 is mathematically lossless, while lower values aggressively increase compression by discarding more data.">
             </div>
 
             <!-- Effort -->
-            <div id="effort-group">
+            <div id="effort-group" title="Controls the encoder's computational effort (1-9). Higher numbers yield smaller file sizes but take significantly longer to calculate.">
               <div class="setting-row">
                 <label class="settings-label" for="effort-slider">Effort</label>
                 <span class="settings-value" id="effort-value">4</span>
               </div>
-              <input type="range" id="effort-slider" class="range-input" min="1" max="9" value="4">
+              <input type="range" id="effort-slider" class="range-input" min="1" max="9" value="4" title="Controls the encoder's computational effort (1-9). Higher numbers yield smaller file sizes but take significantly longer to calculate.">
             </div>
           </div>
         </div>
 
         <!-- Metadata -->
-        <div class="settings-card">
+        <div class="settings-card" title="Control whether metadata (exif, icc) and original JPEG data structure is retained.">
           <h3 class="settings-card-title">Metadata</h3>
-          <div class="setting-row">
+          <div class="setting-row" title="Keep EXIF and ICC profiles intact inside the final image.">
             <label class="settings-label" for="preserve-metadata">Preserve all metadata</label>
             <label class="switch">
               <input type="checkbox" id="preserve-metadata" checked>
               <span class="switch-slider"></span>
             </label>
           </div>
-          <div class="setting-row">
+          <div class="setting-row" title="Special mathematically perfect reconstruction for original JPEG files. Allows restoring the exact same JPEG bytes later.">
             <label class="settings-label" for="jpeg-lossless">Byte-exact JPEG</label>
             <label class="switch">
               <input type="checkbox" id="jpeg-lossless">
               <span class="switch-slider"></span>
             </label>
           </div>
-          <p class="settings-hint" id="jpeg-lossless-hint">Requires cjxl/djxl. Reconstructs the exact original JPEG file.</p>
+          <p class="settings-hint" id="jpeg-lossless-hint">Reconstructs the exact original JPEG file byte-for-byte.</p>
         </div>
 
         <!-- Performance -->
-        <div class="settings-card">
+        <div class="settings-card" title="Manage how the application uses your system resources.">
           <h3 class="settings-card-title">Performance</h3>
-          <div class="setting-row">
+          <div class="setting-row" title="Number of image files to process simultaneously.">
             <label class="settings-label" for="workers-slider">Threads</label>
             <span class="settings-value" id="workers-value">—</span>
           </div>
-          <input type="range" id="workers-slider" class="range-input" min="1" max="16" value="1">
+          <input type="range" id="workers-slider" class="range-input" min="1" max="16" value="1" title="Number of image files to process simultaneously.">
           <p class="settings-hint" id="workers-hint">Parallel threads for batch conversion. Lower values leave more CPU for other tasks.</p>
         </div>
       </div>

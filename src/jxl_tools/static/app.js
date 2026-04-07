@@ -21,6 +21,7 @@
   const directionBtns  = $$("#direction-toggle .toggle-btn");
   const outputFmtGroup = $("#output-format-group");
   const outputFmtSelect = $("#output-format");
+  const fallbackHint   = $("#jxl-fallback-hint");
 
   // Quality
   const presetBtns     = $$(".preset-btn");
@@ -113,7 +114,7 @@
       badgeCjxl.classList.remove("badge--inactive");
       badgeCjxl.classList.add("badge--active");
       jpegLossless.disabled = false;
-      jpegHint.textContent = "Byte-exact JPEG reconstruction available via cjxl/djxl.";
+      jpegHint.textContent = "Reconstructs the original JPEG stream byte-for-byte.";
     } else {
       jpegLossless.disabled = true;
       jpegLossless.checked = false;
@@ -282,6 +283,7 @@
       btn.classList.toggle("active", btn.dataset.value === dir);
     });
     outputFmtGroup.style.display = dir === "from_jxl" ? "" : "none";
+    if (fallbackHint) fallbackHint.style.display = dir === "to_jxl" ? "" : "none";
     updateSettingsForDirection();
   }
 
@@ -456,7 +458,16 @@
             if (event.type === "progress") {
               const pct = Math.round((event.completed / event.total) * 100);
               progressFill.style.width = `${pct}%`;
-              progressStatus.textContent = `Converting… ${event.completed}/${event.total} — ${event.current_file}`;
+              let justFinished = event.current_file.split(/[/\\]/).pop();
+              let msg = `Processed ${event.completed}/${event.total} — ${justFinished}`;
+              
+              if (event.result && currentDirection === "to_jxl") {
+                const outExt = getExt(event.result.output_path);
+                if (outExt !== "jxl" && !event.result.error) {
+                  msg = `Falling back to ${outExt.toUpperCase()} — ${justFinished} (${event.completed}/${event.total})`;
+                }
+              }
+              progressStatus.textContent = msg;
             } else if (event.type === "done") {
               data = event;
             }
@@ -564,12 +575,21 @@
 
         let badges = "";
         if (r.used_jpeg_lossless) {
-          badges = `<span class="result-badge-jpeg">JPEG Lossless</span>`;
+          badges += `<span class="result-badge-jpeg">JPEG Lossless</span>`;
+        }
+        
+        const outExt = getExt(outputName);
+        if (currentDirection === "to_jxl" && outExt !== "jxl") {
+          badges += ` <span class="result-badge-jpeg" style="background: rgba(234, 179, 8, 0.15); color: #eab308; border-color: rgba(234, 179, 8, 0.3);">Fallback: ${outExt.toUpperCase()}</span>`;
         }
 
         li.innerHTML = `
           <div class="file-item-icon file-item-icon--${getExtClass(outputName)}">${getExt(outputName).toUpperCase()}</div>
-          <span class="result-name" title="${outputName}">${outputName} ${badges}</span>
+          <span class="result-name" title="${inputName} → ${outputName}">
+            ${outputName} 
+            <span style="opacity: 0.5; font-size: 0.85em; font-weight: normal; margin: 0 8px;">from ${getExt(inputName).toUpperCase()}</span>
+            ${badges}
+          </span>
           <span class="result-sizes">
             ${formatSize(r.input_size)}
             <span class="result-arrow">→</span>

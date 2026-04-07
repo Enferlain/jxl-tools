@@ -217,6 +217,7 @@ async def convert_batch(
                     "completed": i + 1,
                     "total": total,
                     "current_file": name,
+                    "result": result.model_dump()
                 }) + "\n"
         finally:
             # Ensure all tasks complete even if the generator closes early or throws
