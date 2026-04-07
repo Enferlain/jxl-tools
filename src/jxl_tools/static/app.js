@@ -30,6 +30,8 @@
   const qualityGroup   = $("#quality-slider-group");
   const effortSlider   = $("#effort-slider");
   const effortValue    = $("#effort-value");
+  const effortGroup    = $("#effort-group");
+  const qualityCard    = $("#quality-card");
 
   // Metadata
   const preserveMeta   = $("#preserve-metadata");
@@ -280,11 +282,41 @@
       btn.classList.toggle("active", btn.dataset.value === dir);
     });
     outputFmtGroup.style.display = dir === "from_jxl" ? "" : "none";
+    updateSettingsForDirection();
   }
 
   directionBtns.forEach((btn) => {
     btn.addEventListener("click", () => setDirection(btn.dataset.value));
   });
+
+  outputFmtSelect.addEventListener("change", updateSettingsForDirection);
+
+  function updateSettingsForDirection() {
+    const isFromJxl = currentDirection === "from_jxl";
+    const outFmt = outputFmtSelect.value;
+
+    // Presets, lossless, effort: only relevant when encoding TO JXL
+    presetBtns.forEach((btn) => { btn.disabled = isFromJxl; });
+    losslessToggle.disabled = isFromJxl;
+    effortSlider.disabled = isFromJxl;
+    effortGroup.style.opacity = isFromJxl ? "0.35" : "";
+
+    // Quality: relevant when encoding TO JXL, or FROM JXL → JPEG/WebP
+    const qualityDisabled = isFromJxl && !['jpeg', 'webp'].includes(outFmt);
+    qualitySlider.disabled = qualityDisabled;
+    qualityGroup.style.opacity = qualityDisabled ? "0.35" : "";
+
+    // JPEG lossless: relevant in both directions, but only for JPEG
+    const jpegLosslessDisabled = isFromJxl && outFmt !== 'jpeg';
+    if (jpegLosslessDisabled) {
+      jpegLossless.disabled = true;
+    } else if (capabilities.jpeg_lossless) {
+      jpegLossless.disabled = false;
+    }
+
+    // Visual dimming for the card title area
+    qualityCard.style.opacity = isFromJxl && qualityDisabled ? "0.5" : "";
+  }
 
   // ---------------------------------------------------------------
   // Quality presets

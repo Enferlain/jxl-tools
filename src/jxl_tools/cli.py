@@ -255,8 +255,15 @@ def info(file_path: str):
 @click.option("--open/--no-open", default=True, help="Open browser automatically.")
 def serve(port: int, host: str, open: bool):
     """Start the web UI server."""
+    import logging
     import uvicorn
     import webbrowser
+
+    # Configure app-level logging so converter/server messages show in terminal
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(levelname)s:     %(message)s",
+    )
 
     console.print(f"\n[bold]JXL Tools[/] — Web UI starting at [link]http://{host}:{port}[/link]\n")
 

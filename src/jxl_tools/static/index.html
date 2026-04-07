@@ -68,7 +68,7 @@
         </div>
 
         <!-- Quality -->
-        <div class="settings-card">
+        <div class="settings-card" id="quality-card">
           <h3 class="settings-card-title">Quality</h3>
           <div class="presets">
             <button class="preset-btn" data-preset="fast">Fast</button>
@@ -97,11 +97,13 @@
             </div>
 
             <!-- Effort -->
-            <div class="setting-row">
-              <label class="settings-label" for="effort-slider">Effort</label>
-              <span class="settings-value" id="effort-value">4</span>
+            <div id="effort-group">
+              <div class="setting-row">
+                <label class="settings-label" for="effort-slider">Effort</label>
+                <span class="settings-value" id="effort-value">4</span>
+              </div>
+              <input type="range" id="effort-slider" class="range-input" min="1" max="9" value="4">
             </div>
-            <input type="range" id="effort-slider" class="range-input" min="1" max="9" value="4">
           </div>
         </div>
 

@@ -288,7 +288,7 @@ body::before {
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   padding: 20px;
-  transition: border-color var(--transition-base);
+  transition: border-color var(--transition-base), opacity var(--transition-base);
 }
 
 .settings-card:hover {
@@ -368,6 +368,12 @@ body::before {
   border-color: var(--accent-primary);
   background: var(--accent-primary-dim);
   color: var(--accent-primary);
+}
+
+.preset-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  pointer-events: none;
 }
 
 /* Setting rows */
@@ -455,6 +461,16 @@ body::before {
   border-radius: 100px;
   outline: none;
   margin-bottom: 12px;
+}
+
+.range-input:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+#effort-group,
+#quality-slider-group {
+  transition: opacity var(--transition-base);
 }
 
 .range-input::-webkit-slider-thumb {
