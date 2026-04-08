@@ -3,15 +3,18 @@
 from __future__ import annotations
 
 import asyncio
+from contextlib import asynccontextmanager
 import io
 import json
 import logging
 import tempfile
+import time
 import uuid
 import zipfile
 import re
 import shutil
 from pathlib import Path
+from typing import Any
 
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
@@ -42,11 +45,193 @@ log = logging.getLogger(__name__)
 STATIC_DIR = Path(__file__).parent / "static"
 WORK_DIR = Path(tempfile.gettempdir()) / "jxl-tools-work"
 WORK_DIR.mkdir(exist_ok=True)
+JOB_TTL_SECONDS = 60 * 60
+JOB_CLEANUP_INTERVAL_SECONDS = 5 * 60
+JOB_STATES: dict[str, dict[str, Any]] = {}
+JOB_LOCKS: dict[str, asyncio.Lock] = {}
+
+
+def cleanup_work_dir(max_age_seconds: int = JOB_TTL_SECONDS) -> int:
+    """Delete stale temporary job folders from the work directory."""
+    now = time.time()
+    removed = 0
+
+    for child in WORK_DIR.iterdir():
+        if not child.is_dir():
+            continue
+
+        try:
+            age_seconds = now - child.stat().st_mtime
+        except FileNotFoundError:
+            continue
+
+        if age_seconds <= max_age_seconds:
+            continue
+
+        shutil.rmtree(child, ignore_errors=True)
+        JOB_STATES.pop(child.name, None)
+        JOB_LOCKS.pop(child.name, None)
+        removed += 1
+
+    return removed
+
+
+async def cleanup_old_jobs_forever() -> None:
+    """Continuously trim old temp job folders while the server is running."""
+    while True:
+        try:
+            removed = cleanup_work_dir()
+            if removed:
+                log.info("Cleaned up %d stale job folder(s)", removed)
+        except Exception:
+            log.exception("Background temp-job cleanup failed")
+
+        await asyncio.sleep(JOB_CLEANUP_INTERVAL_SECONDS)
+
+
+def create_job_dirs() -> tuple[str, Path, Path, Path]:
+    """Create a fresh job directory after opportunistic cleanup."""
+    cleanup_work_dir()
+    job_id = uuid.uuid4().hex[:12]
+    job_dir = WORK_DIR / job_id
+    input_dir = job_dir / "input"
+    output_dir = job_dir / "output"
+    input_dir.mkdir(parents=True, exist_ok=True)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    return job_id, job_dir, input_dir, output_dir
+
+
+def build_job_snapshot(job_id: str) -> dict[str, Any]:
+    """Return a JSON-safe snapshot for a tracked batch job."""
+    state = JOB_STATES.get(job_id)
+    if state is None:
+        raise HTTPException(404, "Job not found")
+
+    return {
+        "job_id": job_id,
+        "total": state["total"],
+        "workers": state["workers"],
+        "completed": state["completed"],
+        "active": state["active"],
+        "queued": state["queued"],
+        "done": state["done"],
+        "events": list(state["events"]),
+        "results": list(state["results"]),
+        "total_input_size": state["total_input_size"],
+        "total_output_size": state["total_output_size"],
+        "success_count": state["success_count"],
+        "error_count": state["error_count"],
+        "fallback_count": state["fallback_count"],
+        "total_duration_ms": state["total_duration_ms"],
+        "total_savings_pct": round(
+            (1 - state["total_output_size"] / state["total_input_size"]) * 100
+            if state["total_input_size"] > 0
+            else 0,
+            2,
+        ),
+    }
+
+
+async def run_batch_job(
+    job_id: str,
+    conversion_pairs: list[tuple[Path, Path]],
+    settings: ConversionSettings,
+) -> None:
+    """Process a batch job in the background while updating in-memory progress."""
+    state = JOB_STATES[job_id]
+    lock = JOB_LOCKS[job_id]
+    sem = asyncio.Semaphore(settings.workers)
+
+    async def emit(event: dict[str, Any]) -> None:
+        async with lock:
+            state["events"].append(event)
+
+    async def start_file(filename: str) -> None:
+        async with lock:
+            state["active"] += 1
+            state["queued"] = max(0, state["queued"] - 1)
+            state["events"].append({
+                "type": "file_started",
+                "file": filename,
+                "completed": state["completed"],
+                "total": state["total"],
+                "active": state["active"],
+                "queued": state["queued"],
+            })
+
+    async def finish_file(result: ConversionResult) -> None:
+        result_payload = result.model_dump()
+        name = Path(result.input_path).name
+
+        if result.error:
+            log.error("  ✗ %s — %s", name, result.error)
+        else:
+            log.info("  ✓ %s  %.1f%% savings  %.0fms", name, result.savings_pct, result.duration_ms)
+
+        async with lock:
+            state["completed"] += 1
+            state["active"] = max(0, state["active"] - 1)
+            state["results"].append(result_payload)
+            state["total_input_size"] += result.input_size
+            state["total_output_size"] += result.output_size
+            state["total_duration_ms"] += result.duration_ms
+
+            if result.error:
+                state["error_count"] += 1
+            else:
+                state["success_count"] += 1
+                if Path(result.output_path).suffix.lower() != ".jxl":
+                    state["fallback_count"] += 1
+
+            state["events"].append({
+                "type": "file_finished",
+                "completed": state["completed"],
+                "total": state["total"],
+                "active": state["active"],
+                "queued": state["queued"],
+                "current_file": name,
+                "result": result_payload,
+            })
+
+    async def process_one(inp: Path, outp: Path) -> None:
+        async with sem:
+            await start_file(inp.name)
+            result = await asyncio.to_thread(convert_single, inp, outp, settings)
+            await finish_file(result)
+
+    try:
+        await asyncio.gather(*(process_one(inp, outp) for inp, outp in conversion_pairs))
+    except Exception as exc:
+        log.exception("Unexpected batch task failure for %s", job_id)
+        await emit({
+            "type": "job_error",
+            "message": str(exc),
+        })
+    finally:
+        async with lock:
+            state["done"] = True
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    """Start and stop background temp-job cleanup with the app lifecycle."""
+    cleanup_work_dir()
+    cleanup_task = asyncio.create_task(cleanup_old_jobs_forever())
+    try:
+        yield
+    finally:
+        cleanup_task.cancel()
+        try:
+            await cleanup_task
+        except asyncio.CancelledError:
+            pass
+
 
 app = FastAPI(
     title="JXL Tools",
     version="0.1.0",
     docs_url="/api/docs",
+    lifespan=lifespan,
 )
 
 
@@ -84,12 +269,7 @@ async def convert_file(
         raise HTTPException(400, f"Invalid settings: {e}")
 
     # Create a job directory
-    job_id = uuid.uuid4().hex[:12]
-    job_dir = WORK_DIR / job_id
-    input_dir = job_dir / "input"
-    output_dir = job_dir / "output"
-    input_dir.mkdir(parents=True, exist_ok=True)
-    output_dir.mkdir(parents=True, exist_ok=True)
+    job_id, job_dir, input_dir, output_dir = create_job_dirs()
 
     # Save uploaded file
     assert file.filename is not None
@@ -142,19 +322,14 @@ async def convert_batch(
     files: list[UploadFile] = File(...),
     settings_json: str = Form(default="{}"),
 ):
-    """Convert multiple uploaded files with streaming progress."""
+    """Create and start a background batch conversion job."""
     try:
         settings_dict = json.loads(settings_json)
         settings = ConversionSettings(**settings_dict)
     except Exception as e:
         raise HTTPException(400, f"Invalid settings: {e}")
 
-    job_id = uuid.uuid4().hex[:12]
-    job_dir = WORK_DIR / job_id
-    input_dir = job_dir / "input"
-    output_dir = job_dir / "output"
-    input_dir.mkdir(parents=True, exist_ok=True)
-    output_dir.mkdir(parents=True, exist_ok=True)
+    job_id, job_dir, input_dir, output_dir = create_job_dirs()
 
     # Phase 1: Save all uploaded files to disk
     conversion_pairs: list[tuple[Path, Path]] = []
@@ -189,63 +364,43 @@ async def convert_batch(
     total = len(conversion_pairs)
     log.info("Batch %s: %d files, %d workers", job_id, total, settings.workers)
 
-    # Phase 2: Convert with streaming progress (NDJSON)
-    async def generate():
-        sem = asyncio.Semaphore(settings.workers)
-        results_queue: asyncio.Queue[ConversionResult] = asyncio.Queue()
-
-        async def _convert_one(inp: Path, outp: Path) -> None:
-            async with sem:
-                result = await asyncio.to_thread(convert_single, inp, outp, settings)
-                await results_queue.put(result)
-
-        tasks = [asyncio.create_task(_convert_one(inp, outp)) for inp, outp in conversion_pairs]
-
-        all_results: list[ConversionResult] = []
-        try:
-            for i in range(total):
-                result = await results_queue.get()
-                all_results.append(result)
-
-                name = Path(result.input_path).name
-                if result.error:
-                    log.error("  ✗ %s — %s", name, result.error)
-                else:
-                    log.info("  ✓ %s  %.1f%% savings  %.0fms", name, result.savings_pct, result.duration_ms)
-
-                yield json.dumps({
-                    "type": "progress",
-                    "completed": i + 1,
-                    "total": total,
-                    "current_file": name,
-                    "result": result.model_dump()
-                }) + "\n"
-        finally:
-            # Ensure all tasks complete even if the generator closes early or throws
-            await asyncio.gather(*tasks, return_exceptions=True)
-
-        total_input = sum(r.input_size for r in all_results)
-        total_output = sum(r.output_size for r in all_results)
-
-        yield json.dumps({
-            "type": "done",
+    JOB_STATES[job_id] = {
+        "total": total,
+        "workers": settings.workers,
+        "completed": 0,
+        "active": 0,
+        "queued": total,
+        "done": False,
+        "events": [{
+            "type": "job_started",
             "job_id": job_id,
-            "results": [r.model_dump() for r in all_results],
-            "total_input_size": total_input,
-            "total_output_size": total_output,
-            "total_savings_pct": round(
-                (1 - total_output / total_input) * 100 if total_input > 0 else 0, 2
-            ),
-        }) + "\n"
+            "total": total,
+            "workers": settings.workers,
+        }],
+        "results": [],
+        "total_input_size": 0,
+        "total_output_size": 0,
+        "success_count": 0,
+        "error_count": 0,
+        "fallback_count": 0,
+        "total_duration_ms": 0.0,
+    }
+    JOB_LOCKS[job_id] = asyncio.Lock()
 
-    return StreamingResponse(
-        generate(),
-        media_type="application/x-ndjson",
-        headers={
-            "Cache-Control": "no-cache",
-            "X-Accel-Buffering": "no",
-        }
-    )
+    asyncio.create_task(run_batch_job(job_id, conversion_pairs, settings))
+
+    return {
+        "job_id": job_id,
+        "total": total,
+        "workers": settings.workers,
+    }
+
+
+@app.get("/api/jobs/{job_id}")
+async def get_job_status(job_id: str):
+    """Return the latest progress snapshot for a batch conversion job."""
+    job_id = sanitize_filename(job_id)
+    return build_job_snapshot(job_id)
 
 
 # ---------------------------------------------------------------------------

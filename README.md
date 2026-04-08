@@ -14,7 +14,7 @@ Convert images to and from [JPEG XL](https://jpeg.org/jpegxl/) with quality tuni
 - **Batch processing** — convert entire folders recursively with parallel workers, mirrored directory structure
 - **Byte-exact JPEG reconstruction** — lossless JPEG↔JXL round-trip via bundled `cjxl`/`djxl`
 - **Smart palette handling** — palette PNGs are routed through `cjxl`'s native Palette transform; falls back to WebP lossless or keeps the original if the output would be larger
-- **Web UI** — drag-and-drop interface with dark theme, real-time settings, per-file results, and zip download
+- **Web UI** — drag files or folders into a polished batch UI with live progress, session logs, fallback visibility, summary cards, list/detail result views, and zip download
 - **CLI** — scriptable command-line interface with rich progress bars and formatted output
 
 ---
@@ -108,7 +108,7 @@ jxl-tools info photo.jxl
 
 ### 1. Upload Images
 
-- **Drag and drop** files onto the drop zone, or click **browse** to select files
+- **Drag and drop** files or folders onto the drop zone, or click **browse** to select files
 - Multiple files are supported — they'll be batch-converted together
 - Supported input formats: PNG, JPEG, WebP, TIFF, BMP, JXL
 
@@ -156,14 +156,16 @@ When **JXL →** is selected, an **Output Format** dropdown appears (PNG, JPEG, 
 
 ### 3. Convert
 
-Click the **Convert** button. A progress overlay shows the upload and conversion status.
+Click the **Convert** button. A progress overlay shows live batch status, active worker counts, queued files, and a session log as files start, finish, fall back, or fail.
 
 ### 4. Results
 
 After conversion, a results screen shows:
 
 - **Summary stats** — total files, input size, output size, overall savings percentage
-- **Per-file results** — each file with its original size, converted size, savings percentage, and conversion time
+- **Session summary pills** — quick counts for successful files, fallbacks, errors, and total active conversion time
+- **Per-file results** — switch between **List View** and **Detail View** to inspect file sizes, timing, metadata, and fallback behavior
+- **Session log** — a readable timeline of what happened to each file in processing order
 - **Download** — download individual files, or click **Download All (.zip)** for a zip archive
 - **New Conversion** — reset and start over
 

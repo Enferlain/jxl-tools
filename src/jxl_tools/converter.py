@@ -101,6 +101,13 @@ def _run_cjxl(
     if lossless_jpeg:
         # Byte-exact JPEG reconstruction
         cmd += ["--lossless_jpeg=1"]
+    elif input_path.suffix.lower() in {".jpg", ".jpeg"}:
+        # cjxl defaults JPEG inputs to bitstream-preserving mode unless we
+        # explicitly turn it off. That breaks normal quality-based encoding.
+        cmd += ["--lossless_jpeg=0"]
+
+    if lossless_jpeg:
+        pass
     elif lossless:
         cmd += ["-d", "0"]
     elif distance is not None:

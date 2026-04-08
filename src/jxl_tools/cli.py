@@ -281,4 +281,10 @@ def serve(port: int, host: str, open: bool):
         import threading
         threading.Timer(1.5, lambda: webbrowser.open(f"http://{host}:{port}")).start()
 
-    uvicorn.run("jxl_tools.server:app", host=host, port=port, log_level="info")
+    uvicorn.run(
+        "jxl_tools.server:app",
+        host=host,
+        port=port,
+        log_level="info",
+        access_log=False,
+    )

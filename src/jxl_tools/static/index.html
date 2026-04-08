@@ -40,9 +40,10 @@
             <line x1="12" y1="3" x2="12" y2="15"/>
           </svg>
         </div>
-        <p class="drop-zone-text">Drop images here or <label for="file-input" class="drop-zone-browse">browse</label></p>
-        <p class="drop-zone-hint">PNG, JPEG, WebP, TIFF, BMP → JXL &nbsp;·&nbsp; JXL → PNG, JPEG, WebP, TIFF</p>
+        <p class="drop-zone-text">Drop images or folders here, or <label for="file-input" class="drop-zone-browse">browse</label></p>
+        <p class="drop-zone-hint">PNG, JPEG, WebP, TIFF, BMP → JXL &nbsp;·&nbsp; JXL → PNG, JPEG, WebP, TIFF &nbsp;·&nbsp; folder drops supported</p>
         <input type="file" id="file-input" multiple accept=".png,.jpg,.jpeg,.webp,.tiff,.tif,.bmp,.jxl" hidden>
+        <input type="file" id="folder-input" webkitdirectory directory hidden>
       </div>
     </section>
 
@@ -53,8 +54,8 @@
         <div class="settings-card" title="Choose whether to convert files into JXL or decode them from JXL.">
           <h3 class="settings-card-title">Direction</h3>
           <div class="toggle-group" id="direction-toggle">
-            <button class="toggle-btn active" data-value="to_jxl">→ JXL</button>
-            <button class="toggle-btn" data-value="from_jxl">JXL →</button>
+            <button class="toggle-btn active" data-value="to_jxl" title="Encode PNG, JPEG, WebP, TIFF, or BMP files into JPEG XL.">→ JXL</button>
+            <button class="toggle-btn" data-value="from_jxl" title="Decode JPEG XL files back into PNG, JPEG, WebP, or TIFF.">JXL →</button>
           </div>
           <p class="settings-hint" id="jxl-fallback-hint" style="margin-top: 12px;">Automatically falls back to WebP or Original if JXL results in a larger file.</p>
           <div id="output-format-group" style="display: none; margin-top: 12px;">
@@ -131,23 +132,25 @@
         <!-- Performance -->
         <div class="settings-card" id="performance-card">
           <h3 class="settings-card-title">Performance</h3>
-          
-          <div style="margin-bottom: 24px;">
+
+          <div class="performance-grid">
+          <div class="performance-block">
             <div class="setting-row">
-              <label class="settings-label" for="workers-slider">Workers (Concurrent Images)</label>
+              <label class="settings-label" for="workers-slider" title="How many files to convert at the same time. Higher helps large batches until your CPU is saturated.">Workers (Concurrent Images)</label>
               <span class="settings-value" id="workers-value">4</span>
             </div>
-            <input type="range" id="workers-slider" class="range-input" min="1" max="16" value="4">
+            <input type="range" id="workers-slider" class="range-input" min="1" max="16" value="4" title="Concurrent file conversions.">
             <p class="settings-hint" id="workers-hint">Files to convert simultaneously. Best set to your physical core count.</p>
           </div>
 
-          <div>
+          <div class="performance-block">
             <div class="setting-row">
-              <label class="settings-label" for="threads-slider">JXL Threads (Per Image)</label>
+              <label class="settings-label" for="threads-slider" title="How many libjxl threads to give each file. Lower values are usually better for larger batches.">JXL Threads (Per Image)</label>
               <span class="settings-value" id="threads-value">1</span>
             </div>
-            <input type="range" id="threads-slider" class="range-input" min="1" max="16" value="1">
+            <input type="range" id="threads-slider" class="range-input" min="1" max="16" value="1" title="Per-image JXL thread count.">
             <p class="settings-hint" id="threads-hint">Compute threads per image. Recommend 1 for large batches to avoid CPU starvation.</p>
+          </div>
           </div>
         </div>
       </div>
@@ -158,6 +161,7 @@
           <h3 class="settings-card-title">Files (<span id="file-count">0</span>)</h3>
           <div class="file-list-actions">
             <button id="btn-add-more" class="btn btn--ghost">+ Add More</button>
+            <button id="btn-add-folder" class="btn btn--ghost" title="Add all supported images from a folder.">+ Add Folder</button>
             <button id="btn-clear" class="btn btn--ghost btn--danger">Clear All</button>
           </div>
         </div>
@@ -176,6 +180,14 @@
         <div class="results-actions">
           <button id="btn-download-all" class="btn btn--primary">Download All (.zip)</button>
           <button id="btn-new" class="btn btn--ghost">New Conversion</button>
+        </div>
+      </div>
+
+      <div class="results-toolbar">
+        <div id="results-summary-strip" class="results-summary-strip"></div>
+        <div class="view-toggle" id="results-view-toggle">
+          <button class="view-toggle-btn active" data-view="list" title="Compact rows focused on file sizes and download actions.">List View</button>
+          <button class="view-toggle-btn" data-view="detail" title="Expanded cards with metadata and conversion details.">Detail View</button>
         </div>
       </div>
 
@@ -201,13 +213,25 @@
 
       <!-- Results list -->
       <ul id="results-list" class="results-list"></ul>
+
+      <div class="results-log-section">
+        <h3 class="settings-card-title">Session Log</h3>
+        <ul id="results-log" class="results-log"></ul>
+      </div>
     </section>
   </main>
 
   <!-- Progress overlay -->
   <div id="progress-overlay" class="progress-overlay" style="display: none;">
     <div class="progress-card">
+      <div class="progress-eyebrow" id="progress-eyebrow">Preparing batch</div>
       <h3 class="progress-title">Converting…</h3>
+      <div class="progress-percent" id="progress-percent">0%</div>
+      <div class="progress-summary">
+        <span class="progress-summary-pill" id="progress-files-pill">0 / 0 files</span>
+        <span class="progress-summary-pill" id="progress-fallbacks-pill">0 fallbacks</span>
+        <span class="progress-summary-pill" id="progress-errors-pill">0 errors</span>
+      </div>
       <div class="progress-bar-track">
         <div class="progress-bar-fill" id="progress-bar-fill"></div>
       </div>
