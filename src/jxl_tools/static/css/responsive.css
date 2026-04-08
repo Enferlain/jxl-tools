@@ -1,0 +1,87 @@
+@media (max-width: 768px) {
+  .settings-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .local-mode-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 900px) {
+  .performance-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .header-controls {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .results-toolbar,
+  .results-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .progress-card {
+    min-width: 0;
+  }
+}
+
+@media (max-width: 720px) {
+  .main {
+    padding-inline: 18px;
+  }
+
+  .header-controls {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .header-mode-toggle {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .local-mode-card {
+    padding: 22px;
+  }
+
+  .local-mode-actions .btn {
+    width: 100%;
+  }
+
+  .result-item {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .result-sizes,
+  .result-savings,
+  .result-time,
+  .result-download,
+  .result-meta,
+  .result-error {
+    grid-column: 2 / -1;
+  }
+
+  .results-actions,
+  .view-toggle {
+    width: 100%;
+  }
+
+  .results-actions .btn,
+  .view-toggle-btn {
+    flex: 1;
+  }
+
+  .progress-summary {
+    flex-direction: column;
+  }
+}
