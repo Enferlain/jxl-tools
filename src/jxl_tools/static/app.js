@@ -11,6 +11,12 @@
   const $ = (sel) => document.querySelector(sel);
   const $$ = (sel) => document.querySelectorAll(sel);
 
+  const inputStage     = $("#input-stage");
+  const inputModeBtns  = $$("#input-mode-toggle .toggle-btn");
+  const inputModeDescription = $("#input-mode-description");
+  const localPanel     = $("#local-panel");
+  const uploadPanel    = $("#upload-panel");
+  const btnSwitchToUpload = $("#btn-switch-to-upload");
   const dropZone       = $("#drop-zone");
   const fileInput      = $("#file-input");
   const folderInput    = $("#folder-input");
@@ -84,6 +90,7 @@
   let selectedFiles = [];       // Array of File objects
   let currentJobId  = null;
   let currentResultsView = "list";
+  let currentInputMode = "local";
   let sessionLogs = [];
   let displayedProgress = 0;
   let desiredProgress = 0;
@@ -332,6 +339,31 @@
     resultsList.dataset.view = view;
   }
 
+  function setInputMode(mode) {
+    currentInputMode = mode;
+
+    inputModeBtns.forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.mode === mode);
+    });
+
+    const isUploadMode = mode === "upload";
+    localPanel.style.display = isUploadMode ? "none" : "";
+    uploadPanel.style.display = isUploadMode ? "" : "none";
+
+    inputModeDescription.textContent = isUploadMode
+      ? "Upload copies into this session, convert them here, then download the results."
+      : "Direct disk workflow for originals already on this machine. This view is being wired up next.";
+
+    if (isUploadMode) {
+      if (selectedFiles.length > 0 && resultsPanel.style.display === "none") {
+        showSettings();
+      }
+      return;
+    }
+
+    hideSettings();
+  }
+
   // ---------------------------------------------------------------
   // Init — check capabilities
   // ---------------------------------------------------------------
@@ -545,6 +577,7 @@
   // Panels
   // ---------------------------------------------------------------
   function showSettings() {
+    if (currentInputMode !== "upload") return;
     settingsPanel.style.display = "";
     resultsPanel.style.display = "none";
   }
@@ -555,7 +588,7 @@
 
   function showResults() {
     settingsPanel.style.display = "none";
-    dropZone.style.display = "none";
+    inputStage.style.display = "none";
     resultsPanel.style.display = "";
   }
 
@@ -566,11 +599,12 @@
     resetSessionLogViews();
     resultsSummaryStrip.innerHTML = "";
     setResultsView("list");
-    dropZone.style.display = "";
+    inputStage.style.display = "";
     settingsPanel.style.display = "none";
     resultsPanel.style.display = "none";
     progressOverlay.style.display = "none";
     resultsList.innerHTML = "";
+    setInputMode("local");
   }
 
   // ---------------------------------------------------------------
@@ -973,6 +1007,10 @@
   // ---------------------------------------------------------------
   // Event bindings
   // ---------------------------------------------------------------
+  inputModeBtns.forEach((btn) => {
+    btn.addEventListener("click", () => setInputMode(btn.dataset.mode));
+  });
+  btnSwitchToUpload.addEventListener("click", () => setInputMode("upload"));
   btnAddMore.addEventListener("click", () => fileInput.click());
   btnAddFolder.addEventListener("click", () => folderInput.click());
   btnClear.addEventListener("click", clearFiles);
@@ -993,4 +1031,5 @@
   applyPreset("web");
   updateQualityVisibility();
   setResultsView("list");
+  setInputMode("local");
 })();

@@ -21,30 +21,77 @@
         <p class="header-subtitle">JPEG XL Conversion Suite</p>
       </div>
     </div>
-    <div class="header-badges">
-      <span id="badge-cjxl" class="badge badge--inactive" title="Byte-exact JPEG reconstruction">
-        <span class="badge-dot"></span>
-        cjxl/djxl
-      </span>
+
+    <div class="header-controls">
+      <div class="toggle-group header-mode-toggle" id="input-mode-toggle">
+        <button class="toggle-btn active" data-mode="local">Local</button>
+        <button class="toggle-btn" data-mode="upload">Upload</button>
+      </div>
+
+      <div class="header-badges">
+        <span id="badge-cjxl" class="badge badge--inactive" title="Byte-exact JPEG reconstruction">
+          <span class="badge-dot"></span>
+          cjxl/djxl
+        </span>
+      </div>
     </div>
   </header>
 
   <main class="main">
-    <!-- Drop Zone -->
-    <section id="drop-zone" class="drop-zone">
-      <div class="drop-zone-inner">
-        <div class="drop-zone-icon">
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-            <polyline points="17 8 12 3 7 8"/>
-            <line x1="12" y1="3" x2="12" y2="15"/>
-          </svg>
-        </div>
-        <p class="drop-zone-text">Drop images or folders here, or <label for="file-input" class="drop-zone-browse">browse</label></p>
-        <p class="drop-zone-hint">PNG, JPEG, WebP, TIFF, BMP → JXL &nbsp;·&nbsp; JXL → PNG, JPEG, WebP, TIFF &nbsp;·&nbsp; folder drops supported</p>
-        <input type="file" id="file-input" multiple accept=".png,.jpg,.jpeg,.webp,.tiff,.tif,.bmp,.jxl" hidden>
-        <input type="file" id="folder-input" webkitdirectory directory hidden>
+    <section id="input-stage" class="input-stage">
+      <div class="input-mode-header">
+        <p id="input-mode-description" class="input-mode-description">
+          Direct disk workflow for originals already on this machine. This view is being wired up next.
+        </p>
       </div>
+
+      <section id="local-panel" class="mode-panel mode-panel--local">
+        <div class="local-mode-card">
+          <div class="local-mode-copy">
+            <span class="local-mode-kicker">Local Workflow</span>
+            <h2 class="local-mode-title">Process originals directly from disk</h2>
+            <p class="local-mode-text">
+              Local mode will handle source folders and target folders without uploading session copies first.
+              The clean split is in place now so Upload stays explicit while this path-native flow is finished.
+            </p>
+          </div>
+
+          <div class="local-mode-grid">
+            <article class="local-mode-slot">
+              <span class="local-mode-slot-label">Source</span>
+              <strong class="local-mode-slot-title">Files or folders already on this machine</strong>
+              <p class="local-mode-slot-text">Choose the originals to convert in place instead of queueing browser uploads.</p>
+            </article>
+            <article class="local-mode-slot">
+              <span class="local-mode-slot-label">Target</span>
+              <strong class="local-mode-slot-title">Write results straight to an output folder</strong>
+              <p class="local-mode-slot-text">No zip round-trip, no duplicate temp copy of the whole dataset.</p>
+            </article>
+          </div>
+
+          <div class="local-mode-actions">
+            <button id="btn-switch-to-upload" class="btn btn--primary" type="button">Use Upload For Now</button>
+          </div>
+        </div>
+      </section>
+
+      <section id="upload-panel" class="mode-panel" style="display: none;">
+        <section id="drop-zone" class="drop-zone">
+          <div class="drop-zone-inner">
+            <div class="drop-zone-icon">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="17 8 12 3 7 8"/>
+                <line x1="12" y1="3" x2="12" y2="15"/>
+              </svg>
+            </div>
+            <p class="drop-zone-text">Drop images or folders here, or <label for="file-input" class="drop-zone-browse">browse</label></p>
+            <p class="drop-zone-hint">Uploads session copies first, then converts and downloads results afterward.</p>
+            <input type="file" id="file-input" multiple accept=".png,.jpg,.jpeg,.webp,.tiff,.tif,.bmp,.jxl" hidden>
+            <input type="file" id="folder-input" webkitdirectory directory hidden>
+          </div>
+        </section>
+      </section>
     </section>
 
     <!-- Settings Panel -->
