@@ -129,14 +129,26 @@
         </div>
 
         <!-- Performance -->
-        <div class="settings-card" title="Manage how the application uses your system resources.">
+        <div class="settings-card" id="performance-card">
           <h3 class="settings-card-title">Performance</h3>
-          <div class="setting-row" title="Number of image files to process simultaneously.">
-            <label class="settings-label" for="workers-slider">Threads</label>
-            <span class="settings-value" id="workers-value">—</span>
+          
+          <div style="margin-bottom: 24px;">
+            <div class="setting-row">
+              <label class="settings-label" for="workers-slider">Workers (Concurrent Images)</label>
+              <span class="settings-value" id="workers-value">4</span>
+            </div>
+            <input type="range" id="workers-slider" class="range-input" min="1" max="16" value="4">
+            <p class="settings-hint" id="workers-hint">Files to convert simultaneously. Best set to your physical core count.</p>
           </div>
-          <input type="range" id="workers-slider" class="range-input" min="1" max="16" value="1" title="Number of image files to process simultaneously.">
-          <p class="settings-hint" id="workers-hint">Parallel threads for batch conversion. Lower values leave more CPU for other tasks.</p>
+
+          <div>
+            <div class="setting-row">
+              <label class="settings-label" for="threads-slider">JXL Threads (Per Image)</label>
+              <span class="settings-value" id="threads-value">1</span>
+            </div>
+            <input type="range" id="threads-slider" class="range-input" min="1" max="16" value="1">
+            <p class="settings-hint" id="threads-hint">Compute threads per image. Recommend 1 for large batches to avoid CPU starvation.</p>
+          </div>
         </div>
       </div>
 

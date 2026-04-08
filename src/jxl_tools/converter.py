@@ -87,6 +87,7 @@ def _run_cjxl(
     effort: int = 7,
     distance: float | None = None,
     extra_channels: int | None = None,
+    num_threads: int = 1,
     timeout: int = 300,
 ) -> subprocess.CompletedProcess:
     """Run cjxl to encode an image to JXL."""
@@ -94,6 +95,8 @@ def _run_cjxl(
     assert _cjxl_path is not None
 
     cmd: list[str] = [_cjxl_path]
+
+    cmd += ["--num_threads", str(num_threads)]
 
     if lossless_jpeg:
         # Byte-exact JPEG reconstruction
@@ -122,13 +125,21 @@ def _run_cjxl(
 def _run_djxl(
     input_path: Path,
     output_path: Path,
+    *,
+    jpeg_quality: int | None = None,
+    num_threads: int = 1,
     timeout: int = 300,
 ) -> subprocess.CompletedProcess:
     """Run djxl to decode a JXL file."""
     _find_tools()
     assert _djxl_path is not None
 
-    cmd = [_djxl_path, str(input_path), str(output_path)]
+    cmd = [_djxl_path, "--num_threads", str(num_threads)]
+    
+    if jpeg_quality is not None:
+        cmd += ["-q", str(jpeg_quality), "--pixels_to_jpeg"]
+        
+    cmd += [str(input_path), str(output_path)]
     log.debug("Running: %s", " ".join(cmd))
     try:
         return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
@@ -181,6 +192,7 @@ def convert_to_jxl(
                 input_path, output_path,
                 lossless_jpeg=True,
                 effort=settings.effort,
+                num_threads=settings.jxl_threads,
                 timeout=settings.timeout_seconds,
             )
             if result.returncode != 0:
@@ -192,14 +204,15 @@ def convert_to_jxl(
                 metadata_summary = build_metadata_summary(img)
 
         # --- cjxl path (non-jpeg-lossless but cjxl available) ---
-        elif has_cjxl() and settings.distance is not None:
-            # Use cjxl for distance-based encoding (finer control)
+        elif has_cjxl() and input_path.suffix.lower() not in {".webp", ".tiff", ".tif", ".bmp"}:
+            # Use cjxl for encoding (distance or quality)
             result = _run_cjxl(
                 input_path, output_path,
                 lossless=settings.lossless,
                 quality=settings.quality,
                 effort=settings.effort,
                 distance=settings.distance,
+                num_threads=settings.jxl_threads,
                 timeout=settings.timeout_seconds,
             )
             if result.returncode != 0:
@@ -208,23 +221,6 @@ def convert_to_jxl(
             with Image.open(input_path) as img:
                 metadata_summary = build_metadata_summary(img)
 
-        # --- Palette PNG via cjxl (preserves palette structure) ---
-        elif has_cjxl() and _is_palette_png(input_path):
-            # cjxl can use its own Palette transform on the original
-            # indexed PNG, producing much smaller files than Pillow's
-            # P→RGB depalettization followed by JXL encoding.
-            result = _run_cjxl(
-                input_path, output_path,
-                lossless=settings.lossless,
-                quality=settings.quality,
-                effort=settings.effort,
-                timeout=settings.timeout_seconds,
-            )
-            if result.returncode != 0:
-                raise RuntimeError(f"cjxl failed: {result.stderr.strip()}")
-
-            with Image.open(input_path) as img:
-                metadata_summary = build_metadata_summary(img)
 
         # --- Pillow path ---
         else:
@@ -238,6 +234,7 @@ def convert_to_jxl(
                     save_kwargs["quality"] = settings.quality
 
                 save_kwargs["effort"] = settings.effort
+                save_kwargs["num_threads"] = settings.jxl_threads
 
                 # Metadata
                 meta_kwargs = build_save_kwargs(
@@ -346,17 +343,23 @@ def convert_from_jxl(
     try:
         out_fmt = settings.output_format.value  # "png", "jpeg", etc.
 
-        # --- djxl path for JPEG reconstruction ---
-        if (
-            settings.jpeg_lossless
-            and out_fmt == "jpeg"
-            and has_djxl()
-        ):
-            result = _run_djxl(input_path, output_path, timeout=settings.timeout_seconds)
+        # djxl supports natively decoding to these formats
+        supported_djxl_fmts = {"jpeg", "jpg", "png", "apng", "pam", "ppm", "pnm", "pfm"}
+
+        # --- djxl path for decoding ---
+        if has_djxl() and out_fmt in supported_djxl_fmts:
+            kwargs = {"timeout": settings.timeout_seconds, "num_threads": settings.jxl_threads}
+            if out_fmt in ("jpeg", "jpg") and not settings.jpeg_lossless:
+                kwargs["jpeg_quality"] = settings.quality
+                
+            result = _run_djxl(input_path, output_path, **kwargs)
             if result.returncode != 0:
                 raise RuntimeError(f"djxl failed: {result.stderr.strip()}")
-            used_jpeg_lossless = True
-
+            
+            # If the user specifically requested jpeg lossless reconstruction:
+            if settings.jpeg_lossless and out_fmt == "jpeg":
+                used_jpeg_lossless = True
+                
             # Get metadata from output
             with Image.open(output_path) as img:
                 metadata_summary = build_metadata_summary(img)

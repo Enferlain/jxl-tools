@@ -64,6 +64,7 @@ class ConversionSettings(BaseModel):
     recursive: bool = True
     mirror_structure: bool = True
     workers: int = Field(default_factory=lambda: max(1, min((os.cpu_count() or 4) - 1, 16)))
+    jxl_threads: int = Field(default=1, ge=1, le=16)
 
     def apply_preset(self, preset: QualityPreset) -> None:
         """Apply a named quality preset, mutating self."""

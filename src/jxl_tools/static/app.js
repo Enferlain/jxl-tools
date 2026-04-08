@@ -42,6 +42,8 @@
   // Performance
   const workersSlider  = $("#workers-slider");
   const workersValue   = $("#workers-value");
+  const threadsSlider  = $("#threads-slider");
+  const threadsValue   = $("#threads-value");
 
   // File list
   const fileCountEl    = $("#file-count");
@@ -379,6 +381,10 @@
     workersValue.textContent = workersSlider.value;
   });
 
+  threadsSlider.addEventListener("input", () => {
+    threadsValue.textContent = threadsSlider.value;
+  });
+
   function switchToCustom() {
     if (currentPreset !== "custom") {
       currentPreset = "custom";
@@ -401,6 +407,7 @@
       output_format: outputFmtSelect.value,
       direction: currentDirection,
       workers: parseInt(workersSlider.value),
+      jxl_threads: parseInt(threadsSlider.value),
     };
   }
 

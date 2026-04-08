@@ -63,6 +63,7 @@ async def get_capabilities():
         "djxl_available": has_djxl(),
         "jpeg_lossless": cjxl_available(),
         "default_workers": defaults.workers,
+        "default_jxl_threads": defaults.jxl_threads,
     }
 
 
