@@ -19,10 +19,12 @@
 
   app.files.initInputModeControls();
   app.files.initDropZone();
+  app.local.initLocalPicker();
   app.settings.initSettingsControls();
   app.settings.checkCapabilities();
   app.settings.applyPreset("web");
   app.settings.updateQualityVisibility();
   app.results.setResultsView("list");
+  app.files.syncLocalPlaceholderState();
   app.files.setInputMode("local");
 })();

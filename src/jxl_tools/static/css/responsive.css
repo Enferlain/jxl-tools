@@ -1,13 +1,3 @@
-@media (max-width: 768px) {
-  .settings-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .local-mode-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
 @media (max-width: 900px) {
   .performance-grid {
     grid-template-columns: 1fr;
@@ -35,6 +25,74 @@
   }
 }
 
+@media (max-width: 1280px) {
+  .local-app-shell {
+    min-height: 0;
+  }
+
+  .local-workbench {
+    flex-direction: column;
+  }
+
+  .local-column--explorer,
+  .local-column--breakdown,
+  .local-column--settings {
+    width: auto !important;
+    border-left: 0;
+  }
+
+  .local-column--breakdown,
+  .local-column--settings {
+    border-top: 1px solid var(--border);
+  }
+
+  .local-column--settings {
+    min-width: 0;
+  }
+
+  .local-column-body--tree,
+  .local-column-body--breakdown,
+  .local-column-body--settings {
+    max-height: 360px;
+  }
+
+  .local-resizer {
+    display: none;
+  }
+}
+
+@media (max-width: 920px) {
+  .local-toolbar,
+  .local-output-bar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .local-toolbar-group,
+  .local-output-actions {
+    width: 100%;
+  }
+
+  .local-toolbar-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .local-output-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .local-target-display {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .local-run-btn {
+    width: 100%;
+  }
+}
+
 @media (max-width: 720px) {
   .main {
     padding-inline: 18px;
@@ -50,12 +108,54 @@
     width: 100%;
   }
 
-  .local-mode-card {
-    padding: 22px;
+  .mode-panel--local {
+    width: calc(100vw - 36px);
+    margin-left: calc(50% - 50vw + 18px);
   }
 
-  .local-mode-actions .btn {
-    width: 100%;
+  .local-toolbar,
+  .local-output-bar {
+    padding: 14px 16px;
+  }
+
+  .local-toolbar-group,
+  .local-toolbar-actions {
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+
+  .local-column-head,
+  .local-tree-row,
+  .local-breakdown-row {
+    gap: 8px;
+    padding-inline: 12px;
+  }
+
+  .local-column-head--table,
+  .local-tree-row {
+    grid-template-columns: minmax(0, 1fr) 78px 48px 56px;
+  }
+
+  .local-column--breakdown .local-column-head--table,
+  .local-breakdown-row {
+    grid-template-columns: minmax(0, 1fr) 98px 72px 52px;
+  }
+
+  .local-column-body--tree,
+  .local-column-body--breakdown,
+  .local-column-body--settings {
+    max-height: 300px;
+  }
+
+  .local-breakdown-rows,
+  .local-column-body--settings,
+  .local-breakdown-totals {
+    padding: 16px;
+  }
+
+  .local-breakdown-total-grid,
+  .local-settings-grid {
+    grid-template-columns: 1fr;
   }
 
   .result-item {

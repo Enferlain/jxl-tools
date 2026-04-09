@@ -7,6 +7,7 @@ from contextlib import asynccontextmanager
 import io
 import json
 import logging
+import os
 import tempfile
 import time
 import uuid
@@ -14,6 +15,7 @@ import zipfile
 import re
 import shutil
 from pathlib import Path
+from string import ascii_uppercase
 from typing import Any
 
 
@@ -22,13 +24,15 @@ from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from jxl_tools.converter import (
+    JXL_EXTENSIONS,
+    SUPPORTED_INPUT_FORMATS,
     cjxl_available,
     convert_single,
     has_cjxl,
     has_djxl,
 )
 from jxl_tools.metadata import build_metadata_summary
-from jxl_tools.models import ConversionResult, ConversionSettings
+from jxl_tools.models import ConversionResult, ConversionSettings, LocalSelectionRequest
 
 def sanitize_filename(filename: str) -> str:
     """Sanitize a filename to prevent path traversal."""
@@ -49,6 +53,7 @@ JOB_TTL_SECONDS = 60 * 60
 JOB_CLEANUP_INTERVAL_SECONDS = 5 * 60
 JOB_STATES: dict[str, dict[str, Any]] = {}
 JOB_LOCKS: dict[str, asyncio.Lock] = {}
+LOCAL_SUPPORTED_EXTENSIONS = SUPPORTED_INPUT_FORMATS | JXL_EXTENSIONS
 
 
 def cleanup_work_dir(max_age_seconds: int = JOB_TTL_SECONDS) -> int:
@@ -99,6 +104,271 @@ def create_job_dirs() -> tuple[str, Path, Path, Path]:
     input_dir.mkdir(parents=True, exist_ok=True)
     output_dir.mkdir(parents=True, exist_ok=True)
     return job_id, job_dir, input_dir, output_dir
+
+
+def get_local_roots() -> list[dict[str, str]]:
+    """Return filesystem roots suitable for the current platform."""
+    roots: list[dict[str, str]] = []
+
+    if os.name == "nt":
+        for drive in ascii_uppercase:
+            drive_path = Path(f"{drive}:/")
+            if drive_path.exists():
+                roots.append({"name": f"{drive}:", "path": str(drive_path)})
+        return roots
+
+    root = Path("/")
+    home = Path.home()
+    roots.append({"name": "Root", "path": str(root)})
+    if home != root:
+        roots.append({"name": "Home", "path": str(home)})
+    return roots
+
+
+def resolve_local_path(path_str: str | None) -> Path:
+    """Expand and validate a local filesystem path for browser-driven browsing."""
+    candidate = Path(path_str).expanduser() if path_str else Path.home()
+
+    try:
+        resolved = candidate.resolve(strict=True)
+    except FileNotFoundError as exc:
+        raise HTTPException(404, f"Path not found: {candidate}") from exc
+    except OSError as exc:
+        raise HTTPException(400, f"Invalid path: {candidate}") from exc
+
+    return resolved
+
+
+def list_local_path(path: Path) -> dict[str, Any]:
+    """Return a browsable listing of directories plus supported files."""
+    if not path.is_dir():
+        raise HTTPException(400, "Browse path must be a directory")
+
+    try:
+        children = sorted(path.iterdir(), key=lambda child: (not child.is_dir(), child.name.lower()))
+    except PermissionError as exc:
+        raise HTTPException(403, f"Permission denied: {path}") from exc
+
+    directories: list[dict[str, Any]] = []
+    files: list[dict[str, Any]] = []
+    hidden_unsupported = 0
+
+    for child in children:
+        try:
+            if child.is_dir():
+                directories.append({
+                    "name": child.name or str(child),
+                    "path": str(child),
+                })
+                continue
+
+            if not child.is_file():
+                continue
+        except PermissionError:
+            continue
+
+        ext = child.suffix.lower()
+        if ext not in LOCAL_SUPPORTED_EXTENSIONS:
+            hidden_unsupported += 1
+            continue
+
+        try:
+            size = child.stat().st_size
+        except OSError:
+            size = 0
+
+        files.append({
+            "name": child.name,
+            "path": str(child),
+            "size": size,
+            "extension": ext.lstrip("."),
+        })
+
+    parent_path = str(path.parent) if path.parent != path else None
+
+    return {
+        "current_path": str(path),
+        "parent_path": parent_path,
+        "roots": get_local_roots(),
+        "directories": directories,
+        "files": files,
+        "hidden_unsupported_count": hidden_unsupported,
+    }
+
+
+def collect_supported_files(path: Path) -> list[Path]:
+    """Return supported image files from a path, recursively for directories."""
+    if path.is_file():
+        return [path] if path.suffix.lower() in LOCAL_SUPPORTED_EXTENSIONS else []
+
+    try:
+        files = [child for child in path.rglob("*") if child.is_file() and child.suffix.lower() in LOCAL_SUPPORTED_EXTENSIONS]
+    except PermissionError as exc:
+        raise HTTPException(403, f"Permission denied while scanning: {path}") from exc
+
+    return sorted(files, key=lambda child: str(child).lower())
+
+
+def build_local_selection(paths: list[str]) -> dict[str, Any]:
+    """Group selected local files into a tree plus aggregate breakdowns."""
+    if not paths:
+        raise HTTPException(400, "Select at least one local path")
+
+    grouped_files: dict[str, dict[str, Any]] = {}
+    extension_totals: dict[str, dict[str, Any]] = {}
+    seen_paths: set[str] = set()
+    total_size = 0
+    total_count = 0
+
+    resolved_paths = [resolve_local_path(path_str) for path_str in paths]
+
+    for selected_path in resolved_paths:
+        if selected_path.is_dir():
+            group_root = selected_path
+            files = collect_supported_files(selected_path)
+        else:
+            group_root = selected_path.parent
+            files = collect_supported_files(selected_path)
+
+        group_key = str(group_root)
+        group = grouped_files.setdefault(
+            group_key,
+            {
+                "folder_name": group_root.name or str(group_root),
+                "folder_path": str(group_root),
+                "selection_kind": "folder" if selected_path.is_dir() else "files",
+                "files": [],
+            },
+        )
+
+        for file_path in files:
+            file_key = str(file_path)
+            if file_key in seen_paths:
+                continue
+
+            seen_paths.add(file_key)
+
+            try:
+                size = file_path.stat().st_size
+            except OSError:
+                size = 0
+
+            relative_path = (
+                str(file_path.relative_to(group_root))
+                if file_path.is_relative_to(group_root)
+                else file_path.name
+            )
+
+            ext = file_path.suffix.lower().lstrip(".") or "(none)"
+            group["files"].append({
+                "name": file_path.name,
+                "path": file_key,
+                "relative_path": relative_path,
+                "size": size,
+                "extension": ext,
+            })
+
+            bucket = extension_totals.setdefault(ext, {"extension": ext, "count": 0, "size": 0})
+            bucket["count"] += 1
+            bucket["size"] += size
+            total_count += 1
+            total_size += size
+
+    groups: list[dict[str, Any]] = []
+    for group in sorted(grouped_files.values(), key=lambda item: item["folder_path"].lower()):
+        group["files"].sort(key=lambda item: item["relative_path"].lower())
+        group["file_count"] = len(group["files"])
+        group["total_size"] = sum(item["size"] for item in group["files"])
+        group["folder_count"] = len({
+            str(Path(item["relative_path"]).parent)
+            for item in group["files"]
+            if Path(item["relative_path"]).parent != Path(".")
+        })
+        groups.append(group)
+
+    extensions = sorted(
+        extension_totals.values(),
+        key=lambda item: (-item["count"], -item["size"], item["extension"]),
+    )
+
+    for item in extensions:
+        item["percent"] = (item["size"] / total_size * 100) if total_size else 0.0
+
+    return {
+        "groups": groups,
+        "totals": {
+            "file_count": total_count,
+            "total_size": total_size,
+        },
+        "extensions": extensions,
+    }
+
+
+def show_native_picker(kind: str) -> list[str]:
+    """Open a native local file/folder dialog and return absolute paths."""
+    if os.name != "nt" and not os.environ.get("DISPLAY") and not os.environ.get("WAYLAND_DISPLAY"):
+        raise RuntimeError("No local desktop session is available for a native picker.")
+
+    try:
+        import tkinter as tk
+        from tkinter import filedialog
+    except Exception as exc:
+        raise RuntimeError("Tk file dialogs are not available in this Python environment.") from exc
+
+    root = tk.Tk()
+    root.withdraw()
+
+    try:
+        root.attributes("-topmost", True)
+    except Exception:
+        pass
+
+    root.update_idletasks()
+
+    supported_patterns = " ".join(sorted(f"*{ext}" for ext in LOCAL_SUPPORTED_EXTENSIONS))
+    filetypes = [
+        ("Supported images", supported_patterns),
+        ("All files", "*.*"),
+    ]
+
+    try:
+        if kind == "source_files":
+            selection = list(
+                filedialog.askopenfilenames(
+                    title="Select source files",
+                    filetypes=filetypes,
+                )
+            )
+        elif kind == "source_folder":
+            chosen = filedialog.askdirectory(
+                title="Select source folder",
+                mustexist=True,
+            )
+            selection = [chosen] if chosen else []
+        elif kind == "target_folder":
+            chosen = filedialog.askdirectory(
+                title="Select output folder",
+                mustexist=False,
+            )
+            selection = [chosen] if chosen else []
+        else:
+            raise RuntimeError(f"Unsupported picker kind: {kind}")
+    finally:
+        root.destroy()
+
+    resolved: list[str] = []
+    for raw_path in selection:
+        if not raw_path:
+            continue
+
+        path = Path(raw_path).expanduser()
+        try:
+            resolved_path = path.resolve(strict=kind != "target_folder")
+        except FileNotFoundError:
+            resolved_path = path.resolve(strict=False)
+        resolved.append(str(resolved_path))
+
+    return resolved
 
 
 def build_job_snapshot(job_id: str) -> dict[str, Any]:
@@ -249,6 +519,66 @@ async def get_capabilities():
         "jpeg_lossless": cjxl_available(),
         "default_workers": defaults.workers,
         "default_jxl_threads": defaults.jxl_threads,
+    }
+
+
+@app.get("/api/local/browse")
+async def browse_local_filesystem(path: str | None = None):
+    """Browse a local directory for server-backed local mode selection."""
+    resolved = resolve_local_path(path)
+    return list_local_path(resolved)
+
+
+@app.post("/api/local/inspect-selection")
+async def inspect_local_selection(payload: LocalSelectionRequest):
+    """Expand selected local paths into grouped files plus aggregate breakdowns."""
+    return build_local_selection(payload.paths)
+
+
+async def run_native_picker(kind: str) -> list[str]:
+    """Run a native picker in a thread and convert GUI failures into HTTP errors."""
+    try:
+        return await asyncio.to_thread(show_native_picker, kind)
+    except RuntimeError as exc:
+        raise HTTPException(503, str(exc)) from exc
+
+
+@app.post("/api/local/pick-source-files")
+async def pick_local_source_files():
+    """Open a native file picker for local source files."""
+    paths = await run_native_picker("source_files")
+    if not paths:
+        return {"cancelled": True, "paths": []}
+
+    payload = build_local_selection(paths)
+    payload["cancelled"] = False
+    payload["picked_paths"] = paths
+    return payload
+
+
+@app.post("/api/local/pick-source-folder")
+async def pick_local_source_folder():
+    """Open a native folder picker for a local source directory."""
+    paths = await run_native_picker("source_folder")
+    if not paths:
+        return {"cancelled": True, "paths": []}
+
+    payload = build_local_selection(paths)
+    payload["cancelled"] = False
+    payload["picked_paths"] = paths
+    return payload
+
+
+@app.post("/api/local/pick-target-folder")
+async def pick_local_target_folder():
+    """Open a native folder picker for a local output directory."""
+    paths = await run_native_picker("target_folder")
+    if not paths:
+        return {"cancelled": True, "path": None}
+
+    return {
+        "cancelled": False,
+        "path": paths[0],
     }
 
 

@@ -111,12 +111,19 @@
     }
   }
 
+  function syncLocalPlaceholderState() {
+    if (app.local?.updateTargetSummary) {
+      app.local.updateTargetSummary();
+    }
+  }
+
   function addFiles(files) {
     for (const file of files) {
       const exists = state.selectedFiles.some((selected) => getFileId(selected) === getFileId(file));
       if (!exists) state.selectedFiles.push(file);
     }
     renderFileList();
+    syncLocalPlaceholderState();
     showSettings();
     autoDetectDirection();
   }
@@ -124,12 +131,14 @@
   function removeFile(index) {
     state.selectedFiles.splice(index, 1);
     renderFileList();
+    syncLocalPlaceholderState();
     if (state.selectedFiles.length === 0) hideSettings();
   }
 
   function clearFiles() {
     state.selectedFiles = [];
     renderFileList();
+    syncLocalPlaceholderState();
     hideSettings();
   }
 
@@ -141,12 +150,19 @@
     });
 
     const isUploadMode = mode === "upload";
+    if (els.mainShell) {
+      els.mainShell.classList.toggle("main--local-workspace", !isUploadMode);
+    }
     els.localPanel.style.display = isUploadMode ? "none" : "";
     els.uploadPanel.style.display = isUploadMode ? "" : "none";
+    if (els.inputModeHeader) {
+      els.inputModeHeader.style.display = isUploadMode ? "" : "none";
+    }
+    syncLocalPlaceholderState();
 
     els.inputModeDescription.textContent = isUploadMode
       ? "Upload copies into this session, convert them here, then download the results."
-      : "Direct disk workflow for originals already on this machine. This view is being wired up next.";
+      : "Local-first workspace for browsing originals, tuning export settings, and sending results to a target folder.";
 
     if (isUploadMode) {
       if (state.selectedFiles.length > 0 && els.resultsPanel.style.display === "none") {
@@ -161,6 +177,8 @@
   function resetToStart() {
     state.selectedFiles = [];
     state.currentJobId = null;
+    state.localSelection = null;
+    state.localTargetPath = null;
     renderFileList();
     app.progress.resetSessionLogViews();
     els.resultsSummaryStrip.innerHTML = "";
@@ -170,6 +188,13 @@
     els.resultsPanel.style.display = "none";
     els.progressOverlay.style.display = "none";
     els.resultsList.innerHTML = "";
+    if (app.local?.renderLocalSelection) {
+      app.local.renderLocalSelection();
+    }
+    if (app.local?.updateTargetSummary) {
+      app.local.updateTargetSummary();
+    }
+    syncLocalPlaceholderState();
     setInputMode("local");
   }
 
@@ -226,7 +251,9 @@
       btn.addEventListener("click", () => setInputMode(btn.dataset.mode));
     });
 
-    els.btnSwitchToUpload.addEventListener("click", () => setInputMode("upload"));
+    if (els.btnSwitchToUpload) {
+      els.btnSwitchToUpload.addEventListener("click", () => setInputMode("upload"));
+    }
   }
 
   app.files = {
@@ -239,5 +266,6 @@
     resetToStart,
     setInputMode,
     showSettings,
+    syncLocalPlaceholderState,
   };
 })(window.JXLApp);

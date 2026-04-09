@@ -37,7 +37,7 @@
     </div>
   </header>
 
-  <main class="main">
+  <main id="main-shell" class="main">
     <section id="input-stage" class="input-stage">
       <div class="input-mode-header">
         <p id="input-mode-description" class="input-mode-description">
@@ -46,32 +46,230 @@
       </div>
 
       <section id="local-panel" class="mode-panel mode-panel--local">
-        <div class="local-mode-card">
-          <div class="local-mode-copy">
-            <span class="local-mode-kicker">Local Workflow</span>
-            <h2 class="local-mode-title">Process originals directly from disk</h2>
-            <p class="local-mode-text">
-              Local mode will handle source folders and target folders without uploading session copies first.
-              The clean split is in place now so Upload stays explicit while this path-native flow is finished.
-            </p>
-          </div>
+        <div class="local-app-shell">
+          <section class="local-toolbar">
+            <div class="local-toolbar-group">
+              <div class="local-toolbar-label">
+                <span class="local-toolbar-label-icon" aria-hidden="true">
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round">
+                    <path d="M3 4h10"></path>
+                    <path d="M5 8h8"></path>
+                    <path d="M7 12h6"></path>
+                    <circle cx="3" cy="4" r="1.2" fill="currentColor" stroke="none"></circle>
+                    <circle cx="5" cy="8" r="1.2" fill="currentColor" stroke="none"></circle>
+                    <circle cx="7" cy="12" r="1.2" fill="currentColor" stroke="none"></circle>
+                  </svg>
+                </span>
+                Input Rules
+              </div>
+              <label class="local-inline-toggle">
+                <input id="local-recursive" type="checkbox" checked>
+                <span class="local-inline-toggle-track"><span class="local-inline-toggle-thumb"></span></span>
+                <span>Recursive</span>
+              </label>
+            </div>
+            <div class="local-toolbar-actions">
+              <button id="btn-local-pick-files" class="btn btn--ghost local-toolbar-btn" type="button">
+                <span class="local-btn-icon" aria-hidden="true">
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M8 3v6"></path>
+                    <path d="M5 6l3-3 3 3"></path>
+                    <path d="M3.5 10.5v1A1.5 1.5 0 0 0 5 13h6a1.5 1.5 0 0 0 1.5-1.5v-1"></path>
+                    <rect x="3" y="2.5" width="10" height="11" rx="1.5" opacity="0.35"></rect>
+                  </svg>
+                </span>
+                Pick Files
+              </button>
+              <button id="btn-local-pick-source" class="btn btn--ghost local-toolbar-btn" type="button">
+                <span class="local-btn-icon" aria-hidden="true">
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M2.5 5.5h11"></path>
+                    <path d="M3.5 4h3l1 1.5h5A1.5 1.5 0 0 1 14 7v4.5A1.5 1.5 0 0 1 12.5 13h-9A1.5 1.5 0 0 1 2 11.5V5.5A1.5 1.5 0 0 1 3.5 4z"></path>
+                    <path d="M8 7.2v3.2"></path>
+                    <path d="M6.6 8.6L8 7.2l1.4 1.4"></path>
+                  </svg>
+                </span>
+                Pick Folder
+              </button>
+            </div>
+          </section>
 
-          <div class="local-mode-grid">
-            <article class="local-mode-slot">
-              <span class="local-mode-slot-label">Source</span>
-              <strong class="local-mode-slot-title">Files or folders already on this machine</strong>
-              <p class="local-mode-slot-text">Choose the originals to convert in place instead of queueing browser uploads.</p>
-            </article>
-            <article class="local-mode-slot">
-              <span class="local-mode-slot-label">Target</span>
-              <strong class="local-mode-slot-title">Write results straight to an output folder</strong>
-              <p class="local-mode-slot-text">No zip round-trip, no duplicate temp copy of the whole dataset.</p>
-            </article>
-          </div>
+          <section class="local-workbench">
+            <div id="local-pane-explorer" class="local-column local-column--explorer">
+              <div class="local-column-head local-column-head--table">
+                <div class="local-col-name">Name</div>
+                <div class="local-col-size">Size</div>
+                <div class="local-col-files">Files</div>
+                <div class="local-col-folders">Folders</div>
+              </div>
+              <div id="local-selection-tree" class="local-column-body local-column-body--tree"></div>
+            </div>
 
-          <div class="local-mode-actions">
-            <button id="btn-switch-to-upload" class="btn btn--primary" type="button">Use Upload For Now</button>
-          </div>
+            <div id="local-resizer-left" class="local-resizer" aria-hidden="true"></div>
+
+            <div id="local-pane-breakdown" class="local-column local-column--breakdown">
+              <div class="local-column-head local-column-head--table">
+                <div class="local-col-extension">Extension</div>
+                <div class="local-col-percent">%</div>
+                <div class="local-col-size">Size</div>
+                <div class="local-col-count">Count</div>
+              </div>
+              <div id="local-breakdown" class="local-column-body local-column-body--breakdown"></div>
+              <div class="local-breakdown-totals">
+                <div class="local-breakdown-totals-head">Dataset Totals</div>
+                <div class="local-breakdown-total-grid">
+                  <div class="local-breakdown-total-card">
+                    <div class="local-breakdown-total-label">Total Size</div>
+                    <div id="local-total-size" class="local-breakdown-total-value">0 B</div>
+                  </div>
+                  <div class="local-breakdown-total-card">
+                    <div class="local-breakdown-total-label">Total Files</div>
+                    <div id="local-total-files" class="local-breakdown-total-value">0</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div id="local-resizer-middle" class="local-resizer" aria-hidden="true"></div>
+
+            <div class="local-column local-column--settings">
+              <div class="local-column-head local-column-head--settings">
+                <span class="local-toolbar-label-icon local-toolbar-label-icon--muted" aria-hidden="true">
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="8" cy="8" r="2.2"></circle>
+                    <path d="M8 2.4v1.2"></path>
+                    <path d="M8 12.4v1.2"></path>
+                    <path d="M12.4 8h1.2"></path>
+                    <path d="M2.4 8h1.2"></path>
+                    <path d="M11.1 4.9l.8-.8"></path>
+                    <path d="M4.1 11.9l.8-.8"></path>
+                    <path d="M11.1 11.1l.8.8"></path>
+                    <path d="M4.1 4.1l.8.8"></path>
+                  </svg>
+                </span>
+                Conversion Settings
+              </div>
+              <div class="local-column-body local-column-body--settings">
+                <div class="local-settings-grid">
+                  <section class="local-settings-block">
+                    <div class="local-settings-title">Direction</div>
+                    <div class="local-direction-toggle" id="local-direction-toggle">
+                      <button class="local-direction-btn active" data-value="to_jxl" type="button">→ JXL</button>
+                      <button class="local-direction-btn" data-value="from_jxl" type="button">JXL →</button>
+                    </div>
+                    <p class="local-settings-help">Automatically falls back to WebP or Original if JXL results in a larger file.</p>
+                  </section>
+
+                  <section class="local-settings-block">
+                    <div class="local-settings-title">Quality</div>
+                    <label class="local-setting-toggle">
+                      <span>Lossless</span>
+                      <span class="local-switch">
+                        <input id="local-lossless-toggle" type="checkbox">
+                        <span class="local-switch-track"></span>
+                      </span>
+                    </label>
+                    <label class="local-setting-slider">
+                      <div class="local-setting-row">
+                        <span>Quality</span>
+                        <span id="local-quality-value" class="local-setting-value">80</span>
+                      </div>
+                      <input id="local-quality-slider" type="range" min="1" max="100" value="80">
+                    </label>
+                    <label class="local-setting-slider">
+                      <div class="local-setting-row">
+                        <span>Effort</span>
+                        <span id="local-effort-value" class="local-setting-value">4</span>
+                      </div>
+                      <input id="local-effort-slider" type="range" min="1" max="9" value="4">
+                    </label>
+                  </section>
+
+                  <section class="local-settings-block">
+                    <div class="local-settings-title">Metadata</div>
+                    <label class="local-setting-toggle">
+                      <span>Preserve all metadata</span>
+                      <span class="local-switch">
+                        <input id="local-preserve-metadata" type="checkbox" checked>
+                        <span class="local-switch-track"></span>
+                      </span>
+                    </label>
+                    <label class="local-setting-toggle">
+                      <span>Byte-exact JPEG</span>
+                      <span class="local-switch">
+                        <input id="local-jpeg-lossless" type="checkbox">
+                        <span class="local-switch-track"></span>
+                      </span>
+                    </label>
+                    <p class="local-settings-help">Reconstructs the original JPEG stream byte-for-byte.</p>
+                  </section>
+
+                  <section class="local-settings-block">
+                    <div class="local-settings-title">Performance</div>
+                    <label class="local-setting-slider">
+                      <div class="local-setting-row">
+                        <span>Workers (Concurrent Images)</span>
+                        <span id="local-workers-value" class="local-setting-value">4</span>
+                      </div>
+                      <input id="local-workers-slider" type="range" min="1" max="16" value="4">
+                      <p class="local-settings-help">Files to convert simultaneously. Best set to your physical core count.</p>
+                    </label>
+                    <label class="local-setting-slider">
+                      <div class="local-setting-row">
+                        <span>JXL Threads (Per Image)</span>
+                        <span id="local-threads-value" class="local-setting-value">1</span>
+                      </div>
+                      <input id="local-threads-slider" type="range" min="1" max="16" value="1">
+                      <p class="local-settings-help">Compute threads per image. Recommend 1 for large batches to avoid CPU starvation.</p>
+                    </label>
+                  </section>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="local-output-bar">
+            <div class="local-toolbar-group">
+              <div class="local-toolbar-label">
+                <span class="local-toolbar-label-icon" aria-hidden="true">
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M3 8h7"></path>
+                    <path d="M7.5 4.5L11 8l-3.5 3.5"></path>
+                    <path d="M3 4v8"></path>
+                  </svg>
+                </span>
+                Output Rules
+              </div>
+              <label class="local-inline-checkbox">
+                <input id="local-mirror-toggle" type="checkbox" checked>
+                <span class="local-inline-checkbox-box"></span>
+                <span>Mirror</span>
+              </label>
+              <label class="local-inline-checkbox">
+                <input id="local-sibling-toggle" type="checkbox">
+                <span class="local-inline-checkbox-box"></span>
+                <span>Sibling _jxl target</span>
+              </label>
+            </div>
+            <div class="local-output-actions">
+              <div class="local-target-display">
+                <span class="local-target-icon" aria-hidden="true">
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M2.5 5.5h11"></path>
+                    <path d="M3.5 4h3l1 1.5h5A1.5 1.5 0 0 1 14 7v4.5A1.5 1.5 0 0 1 12.5 13h-9A1.5 1.5 0 0 1 2 11.5V5.5A1.5 1.5 0 0 1 3.5 4z"></path>
+                  </svg>
+                </span>
+                <span id="local-target-path" class="local-target-path">No output folder selected yet</span>
+                <button id="btn-local-pick-target" class="local-target-browse" type="button" title="Pick target folder" aria-label="Pick target folder">
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M2.5 5.5h11"></path>
+                    <path d="M3.5 4h3l1 1.5h5A1.5 1.5 0 0 1 14 7v4.5A1.5 1.5 0 0 1 12.5 13h-9A1.5 1.5 0 0 1 2 11.5V5.5A1.5 1.5 0 0 1 3.5 4z"></path>
+                  </svg>
+                </button>
+              </div>
+              <button id="btn-local-run" class="btn btn--primary local-run-btn" type="button">Initiate Export</button>
+            </div>
+          </section>
         </div>
       </section>
 
@@ -291,6 +489,7 @@
   <script src="/js/settings.js"></script>
   <script src="/js/results.js"></script>
   <script src="/js/files.js"></script>
+  <script src="/js/local.js"></script>
   <script src="/js/conversion.js"></script>
   <script src="/app.js"></script>
 </body>

@@ -31,6 +31,9 @@
     }
 
     els.qualityCard.style.opacity = isFromJxl && qualityDisabled ? "0.5" : "";
+    if (app.local?.syncLocalSettingsFromShared) {
+      app.local.syncLocalSettingsFromShared();
+    }
   }
 
   function setDirection(dir) {
@@ -43,10 +46,16 @@
       els.fallbackHint.style.display = dir === "to_jxl" ? "" : "none";
     }
     updateSettingsForDirection();
+    if (app.local?.syncLocalSettingsFromShared) {
+      app.local.syncLocalSettingsFromShared();
+    }
   }
 
   function updateQualityVisibility() {
     els.qualityGroup.style.display = els.losslessToggle.checked ? "none" : "";
+    if (app.local?.syncLocalSettingsFromShared) {
+      app.local.syncLocalSettingsFromShared();
+    }
   }
 
   function applyPreset(name) {
@@ -119,6 +128,9 @@
     els.threadsSlider.max = maxWorkers;
     els.threadsSlider.value = defaultThreads;
     els.threadsValue.textContent = els.threadsSlider.value;
+    if (app.local?.syncLocalSettingsFromShared) {
+      app.local.syncLocalSettingsFromShared();
+    }
   }
 
   function initSettingsControls() {
@@ -140,19 +152,31 @@
     els.qualitySlider.addEventListener("input", () => {
       els.qualityValue.textContent = els.qualitySlider.value;
       switchToCustom();
+      if (app.local?.syncLocalSettingsFromShared) {
+        app.local.syncLocalSettingsFromShared();
+      }
     });
 
     els.effortSlider.addEventListener("input", () => {
       els.effortValue.textContent = els.effortSlider.value;
       switchToCustom();
+      if (app.local?.syncLocalSettingsFromShared) {
+        app.local.syncLocalSettingsFromShared();
+      }
     });
 
     els.workersSlider.addEventListener("input", () => {
       els.workersValue.textContent = els.workersSlider.value;
+      if (app.local?.syncLocalSettingsFromShared) {
+        app.local.syncLocalSettingsFromShared();
+      }
     });
 
     els.threadsSlider.addEventListener("input", () => {
       els.threadsValue.textContent = els.threadsSlider.value;
+      if (app.local?.syncLocalSettingsFromShared) {
+        app.local.syncLocalSettingsFromShared();
+      }
     });
   }
 

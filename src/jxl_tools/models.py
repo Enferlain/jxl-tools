@@ -129,3 +129,8 @@ class ImageInfo(BaseModel):
     dimensions: tuple[int, int]
     mode: str
     metadata: MetadataSummary
+
+
+class LocalSelectionRequest(BaseModel):
+    """Local filesystem selection request from the web UI."""
+    paths: list[str] = Field(default_factory=list)
