@@ -54,6 +54,7 @@ html {
   font-size: 15px;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  min-height: 100%;
 }
 
 body {
@@ -62,6 +63,11 @@ body {
   color: var(--text-primary);
   min-height: 100vh;
   line-height: 1.5;
+}
+
+body.body--local-workspace {
+  height: 100vh;
+  overflow: hidden;
 }
 
 body::before {
@@ -150,6 +156,55 @@ body::before {
   background: rgba(94, 106, 210, 0.1);
   color: var(--text-secondary);
   transition: all var(--transition-base);
+}
+
+button,
+[role="button"],
+input[type="range"],
+select,
+summary,
+.btn,
+.toggle-btn,
+.preset-btn,
+.view-toggle-btn,
+.local-direction-btn,
+.local-inline-toggle,
+.local-inline-checkbox,
+.local-tree-row--folder,
+.local-target-browse,
+.drop-zone,
+.drop-zone-browse,
+.file-item-remove,
+.result-download,
+.switch,
+.local-switch {
+  cursor: pointer;
+}
+
+button:disabled,
+input:disabled,
+select:disabled {
+  cursor: not-allowed;
+}
+
+.app-tooltip {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 1000;
+  max-width: 320px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(9, 10, 14, 0.96);
+  color: var(--text-primary);
+  font-size: 0.74rem;
+  line-height: 1.45;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.38);
+  pointer-events: none;
+  backdrop-filter: blur(12px);
+  display: none;
+  transform: translate(-9999px, -9999px);
 }
 
 .badge--active {
@@ -1064,7 +1119,8 @@ body::before {
 }
 
 .local-setting-toggle {
-  gap: 10px;
+  gap: 8px;
+  align-items: flex-start;
 }
 
 .local-setting-toggle > span:first-child,
@@ -1079,7 +1135,8 @@ body::before {
 
 .local-switch {
   display: inline-flex;
-  justify-content: flex-end;
+  justify-content: flex-start;
+  align-self: flex-start;
 }
 
 .local-switch input {

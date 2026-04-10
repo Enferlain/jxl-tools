@@ -29,7 +29,7 @@
       </div>
 
       <div class="header-badges">
-        <span id="badge-cjxl" class="badge badge--inactive" title="Byte-exact JPEG reconstruction">
+        <span id="badge-cjxl" class="badge badge--inactive" title="Byte-exact JPEG reconstruction" data-tooltip="Byte-exact JPEG reconstruction">
           <span class="badge-dot"></span>
           cjxl/djxl
         </span>
@@ -65,11 +65,11 @@
               <label class="local-inline-toggle">
                 <input id="local-recursive" type="checkbox" checked>
                 <span class="local-inline-toggle-track"><span class="local-inline-toggle-thumb"></span></span>
-                <span>Recursive</span>
+                <span data-tooltip="Scan selected folders recursively so nested images are included too.">Recursive</span>
               </label>
             </div>
             <div class="local-toolbar-actions">
-              <button id="btn-local-pick-files" class="btn btn--ghost local-toolbar-btn" type="button">
+              <button id="btn-local-pick-files" class="btn btn--ghost local-toolbar-btn" type="button" data-tooltip="Choose specific source images from your machine with the native file picker.">
                 <span class="local-btn-icon" aria-hidden="true">
                   <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M8 3v6"></path>
@@ -80,7 +80,7 @@
                 </span>
                 Pick Files
               </button>
-              <button id="btn-local-pick-source" class="btn btn--ghost local-toolbar-btn" type="button">
+              <button id="btn-local-pick-source" class="btn btn--ghost local-toolbar-btn" type="button" data-tooltip="Choose a source folder from your machine with the native folder picker.">
                 <span class="local-btn-icon" aria-hidden="true">
                   <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M2.5 5.5h11"></path>
@@ -154,8 +154,8 @@
                   <section class="local-settings-block">
                     <div class="local-settings-title">Direction</div>
                     <div class="local-direction-toggle" id="local-direction-toggle">
-                      <button class="local-direction-btn active" data-value="to_jxl" type="button">→ JXL</button>
-                      <button class="local-direction-btn" data-value="from_jxl" type="button">JXL →</button>
+                      <button class="local-direction-btn active" data-value="to_jxl" type="button" data-tooltip="Encode supported source images into JPEG XL.">→ JXL</button>
+                      <button class="local-direction-btn" data-value="from_jxl" type="button" data-tooltip="Decode JPEG XL files back into PNG, JPEG, WebP, or TIFF.">JXL →</button>
                     </div>
                     <p class="local-settings-help">Automatically falls back to WebP or Original if JXL results in a larger file.</p>
                   </section>
@@ -163,41 +163,41 @@
                   <section class="local-settings-block">
                     <div class="local-settings-title">Quality</div>
                     <label class="local-setting-toggle">
-                      <span>Lossless</span>
+                      <span data-tooltip="Enable mathematically exact pixel reconstruction when encoding to JPEG XL.">Lossless</span>
                       <span class="local-switch">
-                        <input id="local-lossless-toggle" type="checkbox">
+                        <input id="local-lossless-toggle" type="checkbox" data-tooltip="Enable mathematically exact pixel reconstruction when encoding to JPEG XL.">
                         <span class="local-switch-track"></span>
                       </span>
                     </label>
                     <label class="local-setting-slider">
                       <div class="local-setting-row">
-                        <span>Quality</span>
+                        <span data-tooltip="Target visual quality. Higher values preserve more detail and usually produce larger files.">Quality</span>
                         <span id="local-quality-value" class="local-setting-value">80</span>
                       </div>
-                      <input id="local-quality-slider" type="range" min="1" max="100" value="80">
+                      <input id="local-quality-slider" type="range" min="1" max="100" value="80" data-tooltip="Target visual quality. Higher values preserve more detail and usually produce larger files.">
                     </label>
                     <label class="local-setting-slider">
                       <div class="local-setting-row">
-                        <span>Effort</span>
+                        <span data-tooltip="Encoder effort. Higher values usually compress a bit better but take longer to compute.">Effort</span>
                         <span id="local-effort-value" class="local-setting-value">4</span>
                       </div>
-                      <input id="local-effort-slider" type="range" min="1" max="9" value="4">
+                      <input id="local-effort-slider" type="range" min="1" max="9" value="4" data-tooltip="Encoder effort. Higher values usually compress a bit better but take longer to compute.">
                     </label>
                   </section>
 
                   <section class="local-settings-block">
                     <div class="local-settings-title">Metadata</div>
                     <label class="local-setting-toggle">
-                      <span>Preserve all metadata</span>
+                      <span data-tooltip="Keep EXIF, ICC, and related metadata in the output when possible.">Preserve all metadata</span>
                       <span class="local-switch">
-                        <input id="local-preserve-metadata" type="checkbox" checked>
+                        <input id="local-preserve-metadata" type="checkbox" checked data-tooltip="Keep EXIF, ICC, and related metadata in the output when possible.">
                         <span class="local-switch-track"></span>
                       </span>
                     </label>
                     <label class="local-setting-toggle">
-                      <span>Byte-exact JPEG</span>
+                      <span data-tooltip="For JPEG sources, preserve enough information to reconstruct the original JPEG stream byte-for-byte.">Byte-exact JPEG</span>
                       <span class="local-switch">
-                        <input id="local-jpeg-lossless" type="checkbox">
+                        <input id="local-jpeg-lossless" type="checkbox" data-tooltip="For JPEG sources, preserve enough information to reconstruct the original JPEG stream byte-for-byte.">
                         <span class="local-switch-track"></span>
                       </span>
                     </label>
@@ -208,18 +208,18 @@
                     <div class="local-settings-title">Performance</div>
                     <label class="local-setting-slider">
                       <div class="local-setting-row">
-                        <span>Workers (Concurrent Images)</span>
+                        <span data-tooltip="How many files to convert at the same time. Higher helps until your CPU is saturated.">Workers (Concurrent Images)</span>
                         <span id="local-workers-value" class="local-setting-value">4</span>
                       </div>
-                      <input id="local-workers-slider" type="range" min="1" max="16" value="4">
+                      <input id="local-workers-slider" type="range" min="1" max="16" value="4" data-tooltip="How many files to convert at the same time. Higher helps until your CPU is saturated.">
                       <p class="local-settings-help">Files to convert simultaneously. Best set to your physical core count.</p>
                     </label>
                     <label class="local-setting-slider">
                       <div class="local-setting-row">
-                        <span>JXL Threads (Per Image)</span>
+                        <span data-tooltip="How many JPEG XL threads to give each image. Lower values are usually better for larger batches.">JXL Threads (Per Image)</span>
                         <span id="local-threads-value" class="local-setting-value">1</span>
                       </div>
-                      <input id="local-threads-slider" type="range" min="1" max="16" value="1">
+                      <input id="local-threads-slider" type="range" min="1" max="16" value="1" data-tooltip="How many JPEG XL threads to give each image. Lower values are usually better for larger batches.">
                       <p class="local-settings-help">Compute threads per image. Recommend 1 for large batches to avoid CPU starvation.</p>
                     </label>
                   </section>
@@ -243,12 +243,12 @@
               <label class="local-inline-checkbox">
                 <input id="local-mirror-toggle" type="checkbox" checked>
                 <span class="local-inline-checkbox-box"></span>
-                <span>Mirror</span>
+                <span data-tooltip="Recreate the selected folder structure inside the target output folder.">Mirror</span>
               </label>
               <label class="local-inline-checkbox">
                 <input id="local-sibling-toggle" type="checkbox">
                 <span class="local-inline-checkbox-box"></span>
-                <span>Sibling _jxl target</span>
+                <span data-tooltip="Create a sibling output folder next to the source using a _jxl-style suffix.">Sibling _jxl target</span>
               </label>
             </div>
             <div class="local-output-actions">
@@ -260,14 +260,14 @@
                   </svg>
                 </span>
                 <span id="local-target-path" class="local-target-path">No output folder selected yet</span>
-                <button id="btn-local-pick-target" class="local-target-browse" type="button" title="Pick target folder" aria-label="Pick target folder">
+                <button id="btn-local-pick-target" class="local-target-browse" type="button" title="Pick target folder" data-tooltip="Choose the folder where converted files should be written." aria-label="Pick target folder">
                   <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <path d="M2.5 5.5h11"></path>
                     <path d="M3.5 4h3l1 1.5h5A1.5 1.5 0 0 1 14 7v4.5A1.5 1.5 0 0 1 12.5 13h-9A1.5 1.5 0 0 1 2 11.5V5.5A1.5 1.5 0 0 1 3.5 4z"></path>
                   </svg>
                 </button>
               </div>
-              <button id="btn-local-run" class="btn btn--primary local-run-btn" type="button">Initiate Export</button>
+              <button id="btn-local-run" class="btn btn--primary local-run-btn" type="button" data-tooltip="Start the local conversion job using the current source, output, and conversion settings.">Initiate Export</button>
             </div>
           </section>
         </div>
@@ -485,6 +485,7 @@
   </div>
 
   <script src="/js/core.js"></script>
+  <script src="/js/tooltips.js"></script>
   <script src="/js/progress.js"></script>
   <script src="/js/settings.js"></script>
   <script src="/js/results.js"></script>

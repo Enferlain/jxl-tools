@@ -19,6 +19,7 @@
 
   app.files.initInputModeControls();
   app.files.initDropZone();
+  app.tooltips.initTooltips();
   app.local.initLocalPicker();
   app.settings.initSettingsControls();
   app.settings.checkCapabilities();

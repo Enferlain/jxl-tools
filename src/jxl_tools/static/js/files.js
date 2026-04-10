@@ -150,6 +150,7 @@
     });
 
     const isUploadMode = mode === "upload";
+    document.body.classList.toggle("body--local-workspace", !isUploadMode);
     if (els.mainShell) {
       els.mainShell.classList.toggle("main--local-workspace", !isUploadMode);
     }
