@@ -2,6 +2,7 @@
 
 export interface FileNode {
   name: string;
+  label?: string;
   type: 'folder' | 'file';
   path: string;
   size?: number;

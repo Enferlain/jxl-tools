@@ -52,17 +52,18 @@ export function SettingToggle({ checked, onChange, label, helperText }: { checke
   );
 }
 
-export function SettingSlider({ label, value, min, max, onChange, helperText }: { label: string, value: number, min: number, max: number, onChange: (v: number) => void, helperText?: string }) {
+export function SettingSlider({ label, value, min, max, onChange, helperText, disabled = false }: { label: string, value: number, min: number, max: number, onChange: (v: number) => void, helperText?: string, disabled?: boolean }) {
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className={`flex flex-col gap-1.5 ${disabled ? 'opacity-45' : ''}`}>
       <div className="flex justify-between items-center">
-        <span className="text-xs text-[#EDEDEF]">{label}</span>
-        <span className="text-[11px] font-mono text-[#5E6AD2]">{value}</span>
+        <span className={`text-xs ${disabled ? 'text-[#8A8F98]' : 'text-[#EDEDEF]'}`}>{label}</span>
+        <span className={`text-[11px] font-mono ${disabled ? 'text-[#8A8F98]' : 'text-[#5E6AD2]'}`}>{value}</span>
       </div>
       <input 
         type="range" min={min} max={max} value={value} 
-        onChange={(e) => onChange(Number(e.target.value))} 
-        className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-[#5E6AD2]" 
+        onChange={(e) => onChange(Number(e.target.value))}
+        disabled={disabled}
+        className={`w-full h-1 bg-white/10 rounded-lg appearance-none accent-[#5E6AD2] ${disabled ? 'cursor-not-allowed' : 'cursor-pointer'}`}
       />
       {helperText && <span className="text-[10px] text-[#8A8F98] leading-relaxed mt-0.5">{helperText}</span>}
     </div>

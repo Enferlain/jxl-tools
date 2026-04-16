@@ -34,24 +34,22 @@ export function ConversionSettingsPanel({ layout = 'stack' }: Props) {
             {settings.direction === 'to_jxl' ? 'Automatically falls back to WebP or Original if JXL results in a larger file.' : 'Decodes JXL back to standard image formats.'}
           </span>
         )}
-      </div>
-
-      {/* Output Format (Only when converting from JXL) */}
-      {settings.direction === 'from_jxl' && (
-        <div className="flex flex-col gap-3">
-          <div className="text-[10px] font-bold tracking-widest text-[#8A8F98] uppercase border-b border-white/[0.06] pb-2 mb-1">Output Format</div>
-          <div className="flex bg-[#0a0a0c] rounded-md p-1 border border-white/[0.04]">
-            {(['png', 'jpeg', 'webp'] as const).map(fmt => (
-              <button 
-                key={fmt}
-                onClick={() => updateSettings({ targetFormat: fmt })}
-                className={`flex-1 py-1.5 rounded text-xs font-medium uppercase transition-all cursor-pointer ${settings.targetFormat === fmt ? 'bg-[#5E6AD2] text-white shadow-sm' : 'text-[#8A8F98] hover:text-[#EDEDEF]'}`}>
-                {fmt}
-              </button>
-            ))}
+        {settings.direction === 'from_jxl' && (
+          <div className="flex flex-col gap-3 pt-1">
+            <div className="text-[10px] font-bold tracking-widest text-[#8A8F98] uppercase border-b border-white/[0.06] pb-2 mb-1">Output Format</div>
+            <div className="flex bg-[#0a0a0c] rounded-md p-1 border border-white/[0.04]">
+              {(['png', 'jpeg', 'webp'] as const).map(fmt => (
+                <button 
+                  key={fmt}
+                  onClick={() => updateSettings({ targetFormat: fmt })}
+                  className={`flex-1 py-1.5 rounded text-xs font-medium uppercase transition-all cursor-pointer ${settings.targetFormat === fmt ? 'bg-[#5E6AD2] text-white shadow-sm' : 'text-[#8A8F98] hover:text-[#EDEDEF]'}`}>
+                  {fmt}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Quality */}
       <div className="flex flex-col gap-4">
@@ -60,7 +58,14 @@ export function ConversionSettingsPanel({ layout = 'stack' }: Props) {
           {layout === 'stack' && <div className="text-[10px] text-[#5E6AD2] font-medium cursor-pointer hover:text-[#6872D9]">Presets</div>}
         </div>
         <SettingToggle label="Lossless Encoding" checked={settings.lossless} onChange={(v) => updateSettings({ lossless: v })} />
-        <SettingSlider label="Visual Quality" value={settings.quality} min={0} max={100} onChange={(v) => updateSettings({ quality: v })} />
+        <SettingSlider
+          label="Visual Quality"
+          value={settings.quality}
+          min={0}
+          max={100}
+          onChange={(v) => updateSettings({ quality: v })}
+          disabled={settings.lossless}
+        />
         <SettingSlider label="Compression Effort" value={settings.effort} min={1} max={9} onChange={(v) => updateSettings({ effort: v })} helperText="Higher effort takes longer but yields smaller files." />
       </div>
 

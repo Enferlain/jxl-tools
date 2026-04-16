@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { FilePlus, FolderPlus, Folder, FolderOutput, LogOut, Settings, SlidersHorizontal, TrendingUp } from 'lucide-react';
 import { inspectSelection, pickSourceFiles, pickSourceFolder, pickTargetFolder } from '../api';
 import { ConversionSettingsPanel } from './ConversionSettingsPanel';
@@ -13,10 +13,27 @@ interface Props {
 }
 
 const EXTENSION_COLORS = ['#5E6AD2', '#00E676', '#FFB020', '#4DD2FF', '#F87171', '#A78BFA', '#34D399'];
+const MIN_LEFT_WIDTH = 200;
+const MAX_LEFT_WIDTH = 800;
+const MIN_MIDDLE_WIDTH = 250;
+const MAX_MIDDLE_WIDTH = 800;
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(value, max));
+}
+
+function getDefaultPaneWidths(totalWidth: number): { leftWidth: number; middleWidth: number } {
+  const usableWidth = Math.max(0, totalWidth - 2);
+  const leftWidth = clamp(Math.round((usableWidth * 4) / 9), MIN_LEFT_WIDTH, MAX_LEFT_WIDTH);
+  const middleWidth = clamp(Math.round((usableWidth * 2) / 9), MIN_MIDDLE_WIDTH, MAX_MIDDLE_WIDTH);
+
+  return { leftWidth, middleWidth };
+}
 
 function createFolderNode(name: string, path: string): FileNode {
   return {
     name,
+    label: name,
     path,
     type: 'folder',
     size: 0,
@@ -41,6 +58,7 @@ function getSiblingOutputDir(paths: string[]): string {
 
 function buildTreeForGroup(group: InspectGroup): FileNode {
   const root = createFolderNode(group.folder_name, group.folder_path);
+  root.label = group.folder_path;
   const folderIndex = new Map<string, FileNode>([['.', root]]);
 
   for (const file of group.files) {
@@ -105,6 +123,38 @@ function buildTreeForGroup(group: InspectGroup): FileNode {
   return root;
 }
 
+function normalizePath(path: string): string {
+  return path.replace(/\\/g, '/').replace(/\/+$/, '');
+}
+
+function isSameOrDescendantPath(path: string, targetPath: string): boolean {
+  const normalizedPath = normalizePath(path);
+  const normalizedTarget = normalizePath(targetPath);
+
+  return normalizedPath === normalizedTarget || normalizedPath.startsWith(`${normalizedTarget}/`);
+}
+
+function buildSelectionPathsAfterRemoval(
+  inspection: InspectSelectionResponse,
+  removedPath: string,
+): string[] {
+  const nextPaths: string[] = [];
+
+  for (const group of inspection.groups) {
+    if (isSameOrDescendantPath(group.folder_path, removedPath)) {
+      continue;
+    }
+
+    for (const file of group.files) {
+      if (!isSameOrDescendantPath(file.path, removedPath)) {
+        nextPaths.push(file.path);
+      }
+    }
+  }
+
+  return Array.from(new Set(nextPaths));
+}
+
 export function LocalModeView({ startConversion }: Props) {
   const {
     settings,
@@ -115,9 +165,10 @@ export function LocalModeView({ startConversion }: Props) {
     outputDir,
     setOutputDir,
   } = useAppStore();
+  const workbenchRef = useRef<HTMLElement | null>(null);
   const [siblingTarget, setSiblingTarget] = useState(false);
-  const [leftWidth, setLeftWidth] = useState(450);
-  const [middleWidth, setMiddleWidth] = useState(380);
+  const [leftWidth, setLeftWidth] = useState(520);
+  const [middleWidth, setMiddleWidth] = useState(260);
   const [isBusy, setIsBusy] = useState(false);
 
   const selectionTree = useMemo(
@@ -134,6 +185,15 @@ export function LocalModeView({ startConversion }: Props) {
     setOutputDir(getSiblingOutputDir(localSelectedPaths));
   }, [localSelectedPaths, siblingTarget, setOutputDir]);
 
+  useEffect(() => {
+    const width = workbenchRef.current?.clientWidth;
+    if (!width) return;
+
+    const defaults = getDefaultPaneWidths(width);
+    setLeftWidth(defaults.leftWidth);
+    setMiddleWidth(defaults.middleWidth);
+  }, []);
+
   const startResizingLeft = (mouseDownEvent: React.MouseEvent) => {
     mouseDownEvent.preventDefault();
     const startX = mouseDownEvent.clientX;
@@ -142,10 +202,10 @@ export function LocalModeView({ startConversion }: Props) {
 
     const onMouseMove = (mouseMoveEvent: MouseEvent) => {
       let delta = mouseMoveEvent.clientX - startX;
-      const maxDeltaLeft = 800 - startLeftWidth;
-      const minDeltaLeft = 200 - startLeftWidth;
-      const maxDeltaMiddle = startMiddleWidth - 250;
-      const minDeltaMiddle = startMiddleWidth - 800;
+      const maxDeltaLeft = MAX_LEFT_WIDTH - startLeftWidth;
+      const minDeltaLeft = MIN_LEFT_WIDTH - startLeftWidth;
+      const maxDeltaMiddle = startMiddleWidth - MIN_MIDDLE_WIDTH;
+      const minDeltaMiddle = startMiddleWidth - MAX_MIDDLE_WIDTH;
       const maxDelta = Math.min(maxDeltaLeft, maxDeltaMiddle);
       const minDelta = Math.max(minDeltaLeft, minDeltaMiddle);
       delta = Math.max(minDelta, Math.min(delta, maxDelta));
@@ -173,7 +233,7 @@ export function LocalModeView({ startConversion }: Props) {
 
     const onMouseMove = (mouseMoveEvent: MouseEvent) => {
       const newWidth = startWidth + (mouseMoveEvent.clientX - startX);
-      setMiddleWidth(Math.max(250, Math.min(newWidth, 800)));
+      setMiddleWidth(clamp(newWidth, MIN_MIDDLE_WIDTH, MAX_MIDDLE_WIDTH));
     };
 
     const onMouseUp = () => {
@@ -252,6 +312,29 @@ export function LocalModeView({ startConversion }: Props) {
     void handleRefreshInspection(value);
   };
 
+  const handleRemoveSelectionPath = async (path: string) => {
+    if (!localInspection) return;
+
+    const nextPaths = buildSelectionPathsAfterRemoval(localInspection, path);
+    if (nextPaths.length === 0) {
+      setLocalSelection([], null);
+      if (siblingTarget) {
+        setOutputDir('');
+      }
+      return;
+    }
+
+    setIsBusy(true);
+    try {
+      const inspection = await inspectSelection(nextPaths, settings.recursive);
+      applySelection(nextPaths, inspection);
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : 'Unable to remove item from selection.');
+    } finally {
+      setIsBusy(false);
+    }
+  };
+
   const handlePickTarget = async () => {
     setIsBusy(true);
     try {
@@ -301,21 +384,29 @@ export function LocalModeView({ startConversion }: Props) {
         </div>
       </div>
 
-      <main className="flex-1 flex min-h-0 relative z-0">
+      <main ref={workbenchRef} className="flex-1 flex min-h-0 relative z-0">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-[#5E6AD2]/5 blur-[120px] pointer-events-none rounded-full" />
 
         <div className="flex-none flex flex-col min-w-0 bg-[#050506]/80 backdrop-blur-sm" style={{ width: leftWidth }}>
-          <div className="flex-none h-12 border-b border-white/[0.06] bg-[#0a0a0c]/50 flex items-center px-6 text-[10px] font-mono tracking-wider text-[#8A8F98] uppercase">
-            <div className="flex-1">Name</div>
-            <div className="w-20 text-right">Size</div>
-            <div className="w-16 text-right">Files</div>
-            <div className="w-16 text-right">Folders</div>
+          <div
+            className="flex-none h-12 border-b border-white/[0.06] bg-[#0a0a0c]/50 grid grid-cols-[minmax(0,1fr)_5rem_4rem_4rem] items-center pl-6 text-[10px] font-mono tracking-wider text-[#8A8F98] uppercase"
+            style={{ paddingRight: 'calc(1.5rem + var(--tree-scrollbar-gutter))' }}
+          >
+            <div>Name</div>
+            <div className="justify-self-end text-right">Size</div>
+            <div className="justify-self-end text-right">Files</div>
+            <div className="justify-self-end text-right">Folders</div>
           </div>
-          <div className="flex-1 overflow-auto custom-scrollbar pb-2">
+          <div className="flex-1 overflow-auto custom-scrollbar scrollbar-gutter-stable pb-2">
             {selectionTree.length > 0 ? (
               selectionTree.map((node) => (
                 <div key={node.path}>
-                  <TreeNode node={node} recursive={settings.recursive} />
+                  <TreeNode
+                    node={node}
+                    recursive={settings.recursive}
+                    disabled={isBusy}
+                    onRemove={handleRemoveSelectionPath}
+                  />
                 </div>
               ))
             ) : (

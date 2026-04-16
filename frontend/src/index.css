@@ -1,6 +1,14 @@
 @import "tailwindcss";
 
+:root {
+  --tree-scrollbar-gutter: 10px;
+}
+
 @layer utilities {
+  .scrollbar-gutter-stable {
+    scrollbar-gutter: stable;
+  }
+
   .custom-scrollbar::-webkit-scrollbar {
     width: 10px;
     height: 10px;

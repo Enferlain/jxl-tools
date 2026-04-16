@@ -29,3 +29,43 @@
 - [ ] upload guardrails: max upload size policy, clearer validation for very large batches, and possibly chunked/resumable uploads instead of plain multipart "accept and try"
 - [ ] persistent job/history storage: job state is still in memory plus temp files, so results/history disappear across server restarts
 - [ ] better per-file download/history ergonomics if we want durable revisitability: named batches, older-job browsing, and stronger file indexing for revisiting prior results
+
+
+Detail:
+
+
+1. **Queue visibility in the UI**
+   Users need confidence before they hit convert. A clear queue view showing selected folders/files, counts, and what will actually be processed would reduce mistakes more than almost anything else.
+
+2. **Editable local selection**
+   The biggest usability gap after visibility is control. Being able to exclude a subfolder, remove a file, or tweak the local tree without starting over would make Local mode feel like a real batch tool instead of a one-shot picker. This is also called out in the backend/product gaps.
+
+3. **Readable timing and durable session logs**
+   The raw `105961ms` style output is useful to us, but not friendly to normal usage. Converting that into human time, showing elapsed time live, and exporting a timestamped session log into the output folder would make batches much easier to trust and review later.
+
+4. **Preview / compare slider on results**
+   Once conversion works, the next question is “did this quality setting actually look okay?” A before/after preview for a selected result would directly help users tune settings and feel safe using lossy conversion.
+
+5. **Verify workers / threads behavior**
+   This is less flashy, but high-value because it affects every batch. If those settings are misleading or not doing what users expect, the app feels unpredictable. I’d treat this as a reliability task near the top.
+
+6. **Replace blocking `alert()`s with in-app notices/toasts**
+   I found several `window.alert(...)` calls in the current React code, including [useConversionEngine.ts](/mnt/d/Projects/jxl-tools/frontend/src/hooks/useConversionEngine.ts:201) and [LocalModeView.tsx](/mnt/d/Projects/jxl-tools/frontend/src/components/LocalModeView.tsx:212). Swapping those for inline errors or toasts would noticeably improve polish and flow.
+
+7. **Expose remaining meaningful JXL options**
+   Only after the core workflow is easier to understand and trust. Advanced controls are valuable for power users, but they’re not as impactful as better queueing, selection control, and reviewability.
+
+8. **Persistent history / reprocessing warnings**
+   This is useful once people start using the tool repeatedly. It helps prevent accidental duplicate work and opens the door to job history, but it’s a step behind the core batch workflow improvements.
+
+9. **Upload guardrails for large batches**
+   Important, but secondary if Local mode is becoming the primary path. Still worth doing before wider usage.
+
+10. **Longer-term analytics / estimate database**
+   Helpful later, but I’d leave it last. It improves optimization, not immediate usability.
+
+If we want the highest-impact next sprint, I’d bundle it like this:
+
+- **Sprint 1:** queue view, editable local selection, better errors/toasts
+- **Sprint 2:** readable timing, exported session logs, preview slider
+- **Sprint 3:** verify concurrency settings, expose more JXL options, persistent history
