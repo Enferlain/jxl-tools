@@ -10,13 +10,13 @@ from rich.console import Console
 from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 from rich.table import Table
 
-from jxl_tools.converter import (
+from backend.converter import (
     cjxl_available,
     convert_batch_sync,
     convert_single,
     get_image_info,
 )
-from jxl_tools.models import ConversionDirection, ConversionSettings, OutputFormat
+from backend.models import ConversionDirection, ConversionSettings, OutputFormat
 
 console = Console()
 
@@ -282,7 +282,7 @@ def serve(port: int, host: str, open: bool):
         threading.Timer(1.5, lambda: webbrowser.open(f"http://{host}:{port}")).start()
 
     uvicorn.run(
-        "jxl_tools.server:app",
+        "backend.server:app",
         host=host,
         port=port,
         log_level="info",

@@ -64,7 +64,7 @@
               </div>
               <label class="local-inline-toggle">
                 <input id="local-recursive" type="checkbox" checked>
-                <span class="local-inline-toggle-track"><span class="local-inline-toggle-thumb"></span></span>
+                <span class="local-inline-toggle-track" data-tooltip="Scan selected folders recursively so nested images are included too."><span class="local-inline-toggle-thumb"></span></span>
                 <span data-tooltip="Scan selected folders recursively so nested images are included too.">Recursive</span>
               </label>
             </div>
@@ -164,7 +164,7 @@
                     <div class="local-settings-title">Quality</div>
                     <label class="local-setting-toggle">
                       <span data-tooltip="Enable mathematically exact pixel reconstruction when encoding to JPEG XL.">Lossless</span>
-                      <span class="local-switch">
+                      <span class="local-switch" data-tooltip="Enable mathematically exact pixel reconstruction when encoding to JPEG XL.">
                         <input id="local-lossless-toggle" type="checkbox" data-tooltip="Enable mathematically exact pixel reconstruction when encoding to JPEG XL.">
                         <span class="local-switch-track"></span>
                       </span>
@@ -189,14 +189,14 @@
                     <div class="local-settings-title">Metadata</div>
                     <label class="local-setting-toggle">
                       <span data-tooltip="Keep EXIF, ICC, and related metadata in the output when possible.">Preserve all metadata</span>
-                      <span class="local-switch">
+                      <span class="local-switch" data-tooltip="Keep EXIF, ICC, and related metadata in the output when possible.">
                         <input id="local-preserve-metadata" type="checkbox" checked data-tooltip="Keep EXIF, ICC, and related metadata in the output when possible.">
                         <span class="local-switch-track"></span>
                       </span>
                     </label>
                     <label class="local-setting-toggle">
                       <span data-tooltip="For JPEG sources, preserve enough information to reconstruct the original JPEG stream byte-for-byte.">Byte-exact JPEG</span>
-                      <span class="local-switch">
+                      <span class="local-switch" data-tooltip="For JPEG sources, preserve enough information to reconstruct the original JPEG stream byte-for-byte.">
                         <input id="local-jpeg-lossless" type="checkbox" data-tooltip="For JPEG sources, preserve enough information to reconstruct the original JPEG stream byte-for-byte.">
                         <span class="local-switch-track"></span>
                       </span>
@@ -242,12 +242,12 @@
               </div>
               <label class="local-inline-checkbox">
                 <input id="local-mirror-toggle" type="checkbox" checked>
-                <span class="local-inline-checkbox-box"></span>
+                <span class="local-inline-checkbox-box" data-tooltip="Recreate the selected folder structure inside the target output folder."></span>
                 <span data-tooltip="Recreate the selected folder structure inside the target output folder.">Mirror</span>
               </label>
               <label class="local-inline-checkbox">
                 <input id="local-sibling-toggle" type="checkbox">
-                <span class="local-inline-checkbox-box"></span>
+                <span class="local-inline-checkbox-box" data-tooltip="Create a sibling output folder next to the source using a _jxl-style suffix."></span>
                 <span data-tooltip="Create a sibling output folder next to the source using a _jxl-style suffix.">Sibling _jxl target</span>
               </label>
             </div>

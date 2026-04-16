@@ -9,7 +9,7 @@ from typing import Any
 from PIL import Image
 from PIL.ExifTags import TAGS
 
-from jxl_tools.models import MetadataSummary
+from backend.models import MetadataSummary
 
 log = logging.getLogger(__name__)
 

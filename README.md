@@ -60,6 +60,25 @@ jxl-tools serve
 
 Opens a browser at `http://127.0.0.1:8787`. Drop images onto the page, adjust settings, and click **Convert**.
 
+### Frontend Development
+
+The React frontend source lives in `src/ui`.
+
+```bash
+cd src/ui
+npm install
+npm run dev
+```
+
+To have FastAPI serve the Vite app, build it first:
+
+```bash
+cd src/ui
+npm run build
+```
+
+`jxl-tools serve` will use `src/ui/dist` automatically when it exists.
+
 ### CLI — Single File
 
 ```bash

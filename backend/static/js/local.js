@@ -212,9 +212,84 @@
     els.localTotalFiles.textContent = "0";
   }
 
+  function buildFolderTree(files) {
+    const root = { folders: new Map(), files: [] };
+
+    files.forEach((file) => {
+      const relativePath = file.relative_path.split(/[\\/]+/).filter(Boolean);
+      if (relativePath.length <= 1) {
+        root.files.push(file);
+        return;
+      }
+
+      let cursor = root;
+      relativePath.slice(0, -1).forEach((segment) => {
+        if (!cursor.folders.has(segment)) {
+          cursor.folders.set(segment, { name: segment, folders: new Map(), files: [] });
+        }
+        cursor = cursor.folders.get(segment);
+      });
+      cursor.files.push(file);
+    });
+
+    return root;
+  }
+
+  function summarizeFolderNode(node) {
+    const childFolders = Array.from(node.folders.values());
+    const nested = childFolders.map((folder) => summarizeFolderNode(folder));
+    return {
+      ...node,
+      folders: nested,
+      totalSize: node.files.reduce((sum, file) => sum + file.size, 0) + nested.reduce((sum, folder) => sum + folder.totalSize, 0),
+      fileCount: node.files.length + nested.reduce((sum, folder) => sum + folder.fileCount, 0),
+      folderCount: childFolders.length + nested.reduce((sum, folder) => sum + folder.folderCount, 0),
+    };
+  }
+
+  function renderFileRow(file, depth) {
+    const indent = 28 + depth * 20;
+    return `
+      <div class="local-tree-row local-tree-row--file">
+        <div class="local-tree-name local-tree-name--child" style="padding-left:${indent}px;">
+          <span class="file-item-icon file-item-icon--${getExtClass(file.name)}">${escapeHtml(file.extension.toUpperCase())}</span>
+          <span class="local-tree-name-text" title="${escapeHtml(file.relative_path)}">${escapeHtml(file.name)}</span>
+        </div>
+        <div class="local-tree-size">${formatSize(file.size)}</div>
+        <div class="local-tree-count">-</div>
+        <div class="local-tree-count">-</div>
+      </div>
+    `;
+  }
+
+  function renderFolderNode(node, depth) {
+    const indent = depth * 20;
+    const children = [
+      ...node.folders.map((folder) => renderFolderNode(folder, depth + 1)),
+      ...node.files.map((file) => renderFileRow(file, depth + 1)),
+    ].join("");
+
+    return `
+      <details class="local-tree-group" open>
+        <summary class="local-tree-row local-tree-row--folder">
+          <div class="local-tree-name" style="padding-left:${indent}px;">
+            <span class="local-tree-disclosure">⌄</span>
+            <span class="local-tree-folder-icon"></span>
+            <span class="local-tree-name-text">${escapeHtml(node.name)}</span>
+          </div>
+          <div class="local-tree-size">${formatSize(node.totalSize)}</div>
+          <div class="local-tree-count">${node.fileCount}</div>
+          <div class="local-tree-count">${node.folderCount}</div>
+        </summary>
+        <div class="local-tree-children">${children}</div>
+      </details>
+    `;
+  }
+
   function renderSelectionRows(selection) {
     els.localSelectionTree.innerHTML = "";
     selection.groups.forEach((group) => {
+      const nestedTree = summarizeFolderNode(buildFolderTree(group.files));
       const details = document.createElement("details");
       details.className = "local-tree-group";
       details.open = true;
@@ -230,17 +305,8 @@
           <div class="local-tree-count">${group.folder_count ?? 0}</div>
         </summary>
         <div class="local-tree-children">
-          ${group.files.map((file) => `
-            <div class="local-tree-row local-tree-row--file">
-              <div class="local-tree-name local-tree-name--child">
-                <span class="file-item-icon file-item-icon--${getExtClass(file.name)}">${escapeHtml(file.extension.toUpperCase())}</span>
-                <span class="local-tree-name-text" title="${escapeHtml(file.relative_path)}">${escapeHtml(file.relative_path)}</span>
-              </div>
-              <div class="local-tree-size">${formatSize(file.size)}</div>
-              <div class="local-tree-count">-</div>
-              <div class="local-tree-count">-</div>
-            </div>
-          `).join("")}
+          ${nestedTree.folders.map((folder) => renderFolderNode(folder, 1)).join("")}
+          ${nestedTree.files.map((file) => renderFileRow(file, 1)).join("")}
         </div>
       `;
       els.localSelectionTree.appendChild(details);
@@ -293,9 +359,14 @@
   async function pickSourceFolder() {
     setDisabled([els.btnLocalPickSource], true);
     try {
-      const payload = await fetchJson("/api/local/pick-source-folder", { method: "POST" });
+      const payload = await fetchJson("/api/local/pick-source-folder", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recursive: els.localRecursive.checked }),
+      });
       if (!payload.cancelled) {
         state.localSelection = payload;
+        state.localSelectionPaths = payload.picked_paths || [];
         renderLocalSelection();
         app.files.syncLocalPlaceholderState();
       }
@@ -307,9 +378,14 @@
   async function pickSourceFiles() {
     setDisabled([els.btnLocalPickFiles], true);
     try {
-      const payload = await fetchJson("/api/local/pick-source-files", { method: "POST" });
+      const payload = await fetchJson("/api/local/pick-source-files", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recursive: els.localRecursive.checked }),
+      });
       if (!payload.cancelled) {
         state.localSelection = payload;
+        state.localSelectionPaths = payload.picked_paths || [];
         renderLocalSelection();
         app.files.syncLocalPlaceholderState();
       }
@@ -331,10 +407,36 @@
     }
   }
 
+  async function refreshSelectionForRecursiveToggle() {
+    if (!state.localSelectionPaths.length) return;
+
+    els.localRecursive.disabled = true;
+    setDisabled([els.btnLocalPickFiles, els.btnLocalPickSource], true);
+    try {
+      const payload = await fetchJson("/api/local/inspect-selection", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          paths: state.localSelectionPaths,
+          recursive: els.localRecursive.checked,
+        }),
+      });
+      state.localSelection = {
+        ...payload,
+        picked_paths: [...state.localSelectionPaths],
+      };
+      renderLocalSelection();
+    } finally {
+      els.localRecursive.disabled = false;
+      setDisabled([els.btnLocalPickFiles, els.btnLocalPickSource], false);
+    }
+  }
+
   function bindLocalActions() {
     els.btnLocalPickSource.addEventListener("click", pickSourceFolder);
     els.btnLocalPickFiles.addEventListener("click", pickSourceFiles);
     els.btnLocalPickTarget.addEventListener("click", pickTargetFolder);
+    els.localRecursive.addEventListener("change", refreshSelectionForRecursiveToggle);
     els.btnLocalRun.addEventListener("click", () => {
       els.btnLocalRun.blur();
     });

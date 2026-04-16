@@ -12,7 +12,7 @@ log = logging.getLogger(__name__)
 
 _VENDOR_DIR = Path(__file__).parent / "_vendor"
 # Dev mode: binaries are at repo root vendor/, not inside the package
-_DEV_VENDOR_DIR = Path(__file__).parent.parent.parent / "vendor"
+_DEV_VENDOR_DIR = Path(__file__).parent.parent / "vendor"
 
 
 def _get_bundled_path(name: str) -> Path | None:

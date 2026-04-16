@@ -6,6 +6,7 @@ import asyncio
 import concurrent.futures
 import logging
 import subprocess
+import threading
 import time
 import uuid
 from collections.abc import AsyncGenerator
@@ -14,11 +15,11 @@ from typing import Any
 
 from PIL import Image
 
-from jxl_tools.metadata import (
+from backend.metadata import (
     build_metadata_summary,
     build_save_kwargs,
 )
-from jxl_tools.models import (
+from backend.models import (
     BatchProgress,
     ConversionDirection,
     ConversionResult,
@@ -40,6 +41,7 @@ JXL_EXTENSIONS = {".jxl"}
 _cjxl_path: str | None = None
 _djxl_path: str | None = None
 _tools_checked = False
+_tools_lock = threading.Lock()
 
 
 def _find_tools() -> None:
@@ -47,15 +49,19 @@ def _find_tools() -> None:
     if _tools_checked:
         return
 
-    from jxl_tools.binutil import get_tool_path
+    with _tools_lock:
+        if _tools_checked:
+            return
 
-    _cjxl_path = get_tool_path("cjxl")
-    _djxl_path = get_tool_path("djxl")
-    _tools_checked = True
-    if _cjxl_path:
-        log.info("Found cjxl at %s", _cjxl_path)
-    if _djxl_path:
-        log.info("Found djxl at %s", _djxl_path)
+        from backend.binutil import get_tool_path
+
+        _cjxl_path = get_tool_path("cjxl")
+        _djxl_path = get_tool_path("djxl")
+        _tools_checked = True
+        if _cjxl_path:
+            log.info("Found cjxl at %s", _cjxl_path)
+        if _djxl_path:
+            log.info("Found djxl at %s", _djxl_path)
 
 
 def has_cjxl() -> bool:
@@ -300,6 +306,23 @@ def convert_to_jxl(
                     shutil.copy2(input_path, output_path)
                     
                 log.info("Kept original %s — already optimal", input_path.suffix.upper())
+
+        if output_path.suffix.lower() == input_path.suffix.lower():
+            if output_path.resolve() != input_path.resolve():
+                output_path.unlink(missing_ok=True)
+            elapsed = (time.perf_counter() - t0) * 1000
+            return ConversionResult(
+                input_path=str(input_path),
+                output_path="",
+                input_size=input_size,
+                output_size=0,
+                savings_pct=0.0,
+                duration_ms=round(elapsed, 1),
+                metadata=metadata_summary,
+                used_jpeg_lossless=used_jpeg_lossless,
+                skipped=True,
+                skip_reason="Output would keep the original format, so no file was emitted.",
+            )
 
         output_size = output_path.stat().st_size
         elapsed = (time.perf_counter() - t0) * 1000

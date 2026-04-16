@@ -107,6 +107,8 @@ class ConversionResult(BaseModel):
     metadata: MetadataSummary | None = None
     error: str | None = None
     used_jpeg_lossless: bool = False
+    skipped: bool = False
+    skip_reason: str | None = None
 
 
 class BatchProgress(BaseModel):
@@ -134,3 +136,11 @@ class ImageInfo(BaseModel):
 class LocalSelectionRequest(BaseModel):
     """Local filesystem selection request from the web UI."""
     paths: list[str] = Field(default_factory=list)
+    recursive: bool = True
+
+
+class LocalBatchConversionRequest(BaseModel):
+    """Local filesystem batch conversion request from the web UI."""
+    paths: list[str] = Field(default_factory=list)
+    output_dir: str
+    settings: ConversionSettings = Field(default_factory=ConversionSettings)

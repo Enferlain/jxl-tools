@@ -15,18 +15,18 @@ dependencies = [
 ]
 
 [project.scripts]
-jxl-tools = "jxl_tools.cli:cli"
+jxl-tools = "backend.cli:cli"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/jxl_tools"]
+packages = ["backend"]
 
 [tool.hatch.build.targets.wheel.force-include]
-"vendor/windows" = "jxl_tools/_vendor/windows"
-"vendor/linux" = "jxl_tools/_vendor/linux"
+"vendor/windows" = "backend/_vendor/windows"
+"vendor/linux" = "backend/_vendor/linux"
 
 [dependency-groups]
 dev = [

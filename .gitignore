@@ -3,6 +3,14 @@
 __pycache__/
 *.py[cod]
 .python-version
+node_modules/
+build/
+dist/
+coverage/
+.DS_Store
+*.log
+.env*
+!.env.example
 
 # Dev related
 implementation_plan*.md
@@ -10,3 +18,11 @@ task.md
 jxl_resources.md
 libjxl*.md
 tests/assets/*
+
+# Frontend build artifacts
+frontend/dist/
+frontend/node_modules/
+
+# Other
+.venv-wsl/
+output/

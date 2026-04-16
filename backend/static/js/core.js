@@ -114,6 +114,7 @@
       progressErrorCount: 0,
       capabilities: { cjxl_available: false, djxl_available: false, jpeg_lossless: false },
       localSelection: null,
+      localSelectionPaths: [],
       localTargetPath: null,
       localExplorerWidth: 480,
       localBreakdownWidth: 380,

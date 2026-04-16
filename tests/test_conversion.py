@@ -9,8 +9,8 @@ from pathlib import Path
 
 import pytest
 
-from jxl_tools.converter import convert_batch_sync, convert_single
-from jxl_tools.models import ConversionDirection, ConversionSettings, OutputFormat
+from backend.converter import convert_batch_sync, convert_single
+from backend.models import ConversionDirection, ConversionSettings, OutputFormat
 
 ASSETS_DIR = Path(__file__).parent / "assets"
 # Collect every image file across all asset subdirectories

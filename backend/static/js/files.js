@@ -179,6 +179,7 @@
     state.selectedFiles = [];
     state.currentJobId = null;
     state.localSelection = null;
+    state.localSelectionPaths = [];
     state.localTargetPath = null;
     renderFileList();
     app.progress.resetSessionLogViews();
