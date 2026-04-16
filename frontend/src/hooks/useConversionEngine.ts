@@ -3,9 +3,15 @@ import { cancelJob, getJobStatus, pauseJob, resumeJob, startLocalBatch, startUpl
 import { useAppStore } from '../store/useAppStore';
 import type { ConversionLogEntry, JobEvent, JobStatusResponse } from '../types';
 import { formatBytes } from '../utils/formatBytes';
+import { formatProcessingDuration } from '../utils/formatDuration';
+
+function getExtensionLabel(path: string): string {
+  const suffix = path.split('.').at(-1)?.toUpperCase();
+  return suffix && suffix !== path.toUpperCase() ? suffix : '-';
+}
 
 function eventToLog(event: JobEvent): ConversionLogEntry | null {
-  const time = Date.now();
+  const time = event.ts_ms ?? Date.now();
 
   if (event.type === 'job_started') {
     return {
@@ -64,11 +70,15 @@ function eventToLog(event: JobEvent): ConversionLogEntry | null {
   }
 
   if (event.type === 'file_finished' && event.result) {
+    const processingDurationMs = event.processing_duration_ms ?? event.result.duration_ms;
+    const inputExt = getExtensionLabel(event.result.input_path);
+    const outputExt = getExtensionLabel(event.result.output_path);
+
     if (event.result.error) {
       return {
         time,
         kind: 'error',
-        message: `${event.current_file ?? event.result.input_path}: ${event.result.error}`,
+        message: `${event.current_file ?? event.result.input_path} [${inputExt}]: ${event.result.error}`,
       };
     }
 
@@ -76,7 +86,7 @@ function eventToLog(event: JobEvent): ConversionLogEntry | null {
       return {
         time,
         kind: 'skipped',
-        message: `${event.current_file ?? event.result.input_path}: skipped (${event.result.skip_reason ?? 'no action needed'}).`,
+        message: `${event.current_file ?? event.result.input_path} [${inputExt} -> SKIP]: skipped (${event.result.skip_reason ?? 'no action needed'}).`,
       };
     }
 
@@ -84,7 +94,7 @@ function eventToLog(event: JobEvent): ConversionLogEntry | null {
     return {
       time,
       kind: status,
-      message: `${event.current_file ?? event.result.input_path}: ${formatBytes(event.result.input_size)} → ${formatBytes(event.result.output_size)} (${event.result.savings_pct.toFixed(1)}%, ${Math.round(event.result.duration_ms)}ms).`,
+      message: `${event.current_file ?? event.result.input_path} [${inputExt} -> ${outputExt}${status === 'fallback' ? ' fallback' : ''}]: ${formatBytes(event.result.input_size)} → ${formatBytes(event.result.output_size)} (${event.result.savings_pct.toFixed(1)}%, ${formatProcessingDuration(processingDurationMs)}).`,
     };
   }
 
@@ -119,6 +129,7 @@ export function useConversionEngine() {
   const seenEventsRef = useRef(0);
   const activeJobRef = useRef<string | null>(null);
   const startedAtRef = useRef<number | null>(null);
+  const finishedAtRef = useRef<number | null>(null);
 
   const stopPolling = () => {
     if (pollingRef.current) {
@@ -174,6 +185,10 @@ export function useConversionEngine() {
     }
 
     if (status.done) {
+      finishedAtRef.current = status.finished_at_ms ?? Date.now();
+      if (startedAtRef.current !== null && finishedAtRef.current !== null) {
+        setElapsedMs(finishedAtRef.current - startedAtRef.current);
+      }
       stopPolling();
       setHasRunBatch(true);
       setIsPaused(false);
@@ -216,6 +231,7 @@ export function useConversionEngine() {
       setShowCancelConfirm(false);
       setHasRunBatch(false);
       startedAtRef.current = Date.now();
+      finishedAtRef.current = null;
       setElapsedMs(0);
       setProgress(0);
       setProgressPhase('Preparing batch');
@@ -293,12 +309,12 @@ export function useConversionEngine() {
   useEffect(() => () => stopPolling(), []);
 
   useEffect(() => {
-    if (!isConverting || startedAtRef.current === null) {
+    if (!isConverting || startedAtRef.current === null || finishedAtRef.current !== null) {
       return;
     }
 
     const interval = setInterval(() => {
-      if (startedAtRef.current !== null) {
+      if (startedAtRef.current !== null && finishedAtRef.current === null) {
         setElapsedMs(Date.now() - startedAtRef.current);
       }
     }, 250);

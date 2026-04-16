@@ -130,6 +130,8 @@ export interface BackendConversionResult {
 
 export interface JobEvent {
   type: string;
+  ts_ms?: number;
+  processing_duration_ms?: number;
   file?: string;
   completed?: number;
   total?: number;
@@ -146,6 +148,7 @@ export interface JobStatusResponse {
   job_id: string;
   job_kind?: 'upload' | 'local';
   output_dir?: string;
+  session_log_path?: string | null;
   total: number;
   workers: number;
   completed: number;
@@ -164,6 +167,8 @@ export interface JobStatusResponse {
   fallback_count: number;
   skipped_count: number;
   total_duration_ms: number;
+  started_at_ms?: number | null;
+  finished_at_ms?: number | null;
   total_savings_pct: number;
 }
 

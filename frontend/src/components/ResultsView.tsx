@@ -4,6 +4,7 @@ import { downloadBatchZip } from '../api';
 import { useAppStore } from '../store/useAppStore';
 import { exportCsv } from '../utils/export';
 import { formatBytes } from '../utils/formatBytes';
+import { formatDuration, formatProcessingDuration } from '../utils/formatDuration';
 
 function getFileName(path: string): string {
   return path.split(/[\\/]/).at(-1) ?? path;
@@ -19,16 +20,12 @@ function getStatus(result: { output_path: string; error: string | null; skipped:
   return result.output_path.toLowerCase().endsWith('.jxl') ? 'success' : 'fallback';
 }
 
-function formatDuration(durationMs: number): string {
-  const totalSeconds = Math.round(durationMs / 1000);
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-}
-
 export function ResultsView() {
   const { setCurrentView, setAppMode, conversionResults, jobId, jobStatus } = useAppStore();
   const [resultsViewMode, setResultsViewMode] = useState<'list' | 'detailed'>('list');
+  const elapsedWallMs = jobStatus?.started_at_ms && jobStatus?.finished_at_ms
+    ? Math.max(0, jobStatus.finished_at_ms - jobStatus.started_at_ms)
+    : (jobStatus?.total_duration_ms ?? 0);
 
   const summary = useMemo(() => {
     const successCount = conversionResults.filter((result) => getStatus(result) === 'success').length;
@@ -117,11 +114,11 @@ export function ResultsView() {
               <span className="text-xs font-bold tracking-widest uppercase">Time Elapsed</span>
             </div>
             <div className="text-4xl font-semibold tracking-tight text-[#EDEDEF] mb-1">
-              {formatDuration(jobStatus?.total_duration_ms ?? 0)}
+              {formatDuration(elapsedWallMs)}
             </div>
             <div className="text-sm text-[#8A8F98]">
               {conversionResults.length > 0
-                ? `~${Math.round((jobStatus?.total_duration_ms ?? 0) / conversionResults.length)}ms per file`
+                ? `~${formatProcessingDuration((jobStatus?.total_duration_ms ?? 0) / conversionResults.length)} per file`
                 : 'No file timings yet'}
             </div>
           </div>
@@ -136,7 +133,14 @@ export function ResultsView() {
                 <button onClick={() => setResultsViewMode('detailed')} className={`px-3 py-1 rounded-md text-xs font-medium transition-all cursor-pointer ${resultsViewMode === 'detailed' ? 'bg-[#5E6AD2] text-white shadow-[0_2px_8px_rgba(94,106,210,0.25)]' : 'text-[#8A8F98] hover:text-[#EDEDEF]'}`}>Detailed</button>
               </div>
             </div>
-            <button onClick={() => exportCsv(conversionResults)} className="text-xs text-[#5E6AD2] hover:text-[#6872D9] font-medium transition-colors cursor-pointer">Export CSV</button>
+            <div className="flex items-center gap-4">
+              {jobStatus?.session_log_path && (
+                <div className="text-xs text-[#8A8F98]" title={jobStatus.session_log_path}>
+                  Session log saved to output folder
+                </div>
+              )}
+              <button onClick={() => exportCsv(conversionResults)} className="text-xs text-[#5E6AD2] hover:text-[#6872D9] font-medium transition-colors cursor-pointer">Export CSV</button>
+            </div>
           </div>
 
           {resultsViewMode === 'list' ? (
@@ -213,7 +217,7 @@ export function ResultsView() {
                       </div>
                       <div>
                         <div className="text-[#8A8F98] mb-1 font-medium">Processing Time</div>
-                        <div className="text-[#EDEDEF]">{Math.round(res.duration_ms)}ms</div>
+                        <div className="text-[#EDEDEF]">{formatProcessingDuration(res.duration_ms)}</div>
                       </div>
                     </div>
 

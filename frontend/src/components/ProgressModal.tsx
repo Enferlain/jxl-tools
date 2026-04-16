@@ -1,6 +1,7 @@
 import React from 'react';
 import { Pause, Loader2, CheckCircle2, FileImage, Info, AlertTriangle, Play, Clock3, Layers3, ListOrdered } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
+import { formatDuration } from '../utils/formatDuration';
 
 interface ProgressModalProps {
   isConverting: boolean;
@@ -41,19 +42,6 @@ export function ProgressModal({
 }: ProgressModalProps) {
   const { setCurrentView } = useAppStore();
 
-  const formatElapsed = (valueMs: number) => {
-    const totalSeconds = Math.floor(valueMs / 1000);
-    const hours = Math.floor(totalSeconds / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const seconds = totalSeconds % 60;
-
-    if (hours > 0) {
-      return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-    }
-
-    return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-  };
-  
   if (!isConverting) return null;
 
   return (
@@ -106,7 +94,7 @@ export function ProgressModal({
           </div>
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/[0.03] border border-white/[0.04] text-xs text-[#EDEDEF] whitespace-nowrap">
             <Clock3 size={14} className="text-[#8A8F98]" />
-            {formatElapsed(elapsedMs)}
+            {formatDuration(elapsedMs)}
           </div>
           <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs whitespace-nowrap transition-colors ${stats.fallbacks > 0 ? 'bg-[#FFB020]/10 border-[#FFB020]/20 text-[#FFB020]' : 'bg-white/[0.03] border-white/[0.04] text-[#8A8F98]'}`}>
             <Info size={14} />
